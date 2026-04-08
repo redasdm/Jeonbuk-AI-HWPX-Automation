@@ -39,6 +39,8 @@ try:
     import win32ui
     import win32con
     import ctypes
+    import win32process
+    import win32api
 except ImportError:
     print("[ERROR] pywin32 is not installed. Please run 'run.bat' again.")
     sys.exit(1)
@@ -213,9 +215,26 @@ def safe_click(x, y, label=''):
             win32gui.ShowWindow(TARGET_HWND, win32con.SW_RESTORE)
             
         try:
-            # 창을 앞으로 소환
-            win32gui.SetForegroundWindow(TARGET_HWND)
-            time.sleep(0.3)  # 창이 앞으로 나올 시간 대기
+            # 강제로 포커스 뺏어오기 (AttachThreadInput 트릭)
+            fg_hwnd = win32gui.GetForegroundWindow()
+            if fg_hwnd != TARGET_HWND and fg_hwnd != 0:
+                fg_thread = win32api.GetWindowThreadProcessId(fg_hwnd)[0]
+                current_thread = win32api.GetCurrentThreadId()
+                
+                if fg_thread != current_thread:
+                    try:
+                        win32process.AttachThreadInput(current_thread, fg_thread, True)
+                        win32gui.SetForegroundWindow(TARGET_HWND)
+                        win32process.AttachThreadInput(current_thread, fg_thread, False)
+                    except:
+                        win32gui.SetForegroundWindow(TARGET_HWND)
+                else:
+                    win32gui.SetForegroundWindow(TARGET_HWND)
+            else:
+                win32gui.SetForegroundWindow(TARGET_HWND)
+            
+            win32gui.BringWindowToTop(TARGET_HWND)
+            time.sleep(0.4)  # 창이 안전하게 앞으로 완전히 노출될 시간 확보
         except Exception as e:
             log(f"  ⚠️ 팝업 창을 앞으로 가져오는 데 실패: {e}")
 
@@ -223,7 +242,11 @@ def safe_click(x, y, label=''):
     if 0 <= x <= sw and 0 <= y <= sh:
         pyautogui.moveTo(x, y, duration=0.3)
         time.sleep(0.15)
-        pyautogui.click()
+        # 크롬 웹페이지가 너무 빠른 클릭을 무시하는 현상 방지를 위해 딜레이 클릭
+        pyautogui.mouseDown()
+        time.sleep(0.1)
+        pyautogui.mouseUp()
+        
         log(f'  ✅ 클릭 ({x}, {y}) {label}')
         
         # 클릭 후 원래 창으로 포커스 복원
