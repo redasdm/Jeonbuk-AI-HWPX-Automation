@@ -31,5 +31,6 @@ echo   Done.
 
 :: 4. Launch GUI
 echo [3/3] Starting CV macro GUI App...
-start "" ".venv\Scripts\pythonw.exe" gui_app.py
-exit
+echo (Please keep this black window open while the macro runs!)
+.venv\Scripts\python.exe gui_app.py
+pause
