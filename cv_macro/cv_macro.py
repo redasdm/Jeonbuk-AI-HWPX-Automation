@@ -385,7 +385,7 @@ def run():
     
     # 돌발 버튼들
     tpl_quiz_done = load_template('btn_quiz_done.png')
-    tpl_player_next = load_template('btn_player_next.png')
+    tpl_next_text = load_template('btn_next_text.png')  # "다음" 텍스트 아이콘
 
     if tpl_playing is None:
         log('⚠️  templates/badge_playing.png 없음 → 기존 색상 인식 방식으로 작동합니다 (오작동 가능성 있음)')
@@ -406,7 +406,7 @@ def run():
 
             # ── 1. 돌발 상황(팝업 버튼) 감지 및 즉시 클릭 ──
             interrupted = False
-            for btn_tpl, btn_name in [(tpl_quiz_done, '학습(퀴즈)완료 버튼'), (tpl_player_next, '플레이어 다음 버튼')]:
+            for btn_tpl, btn_name in [(tpl_quiz_done, '학습(퀴즈)완료 버튼'), (tpl_next_text, '"다음" 텍스트 버튼')]:
                 if btn_tpl is not None:
                     btn_matches = find_all_templates(screen, btn_tpl, threshold=0.75)
                     if btn_matches:
