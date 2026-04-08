@@ -3,3 +3,4 @@ pyautogui
 numpy
 pillow
 pytesseract
+pywin32

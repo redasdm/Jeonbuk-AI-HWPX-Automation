@@ -34,6 +34,19 @@ import time
 import os
 import sys
 
+try:
+    import win32gui
+    import win32ui
+    import win32con
+    import ctypes
+except ImportError:
+    print("[ERROR] pywin32 is not installed. Please run 'run.bat' again.")
+    sys.exit(1)
+
+# Ensure console supports utf-8 emojis on Windows
+if sys.platform == 'win32':
+    sys.stdout.reconfigure(encoding='utf-8')
+
 # ─────────────────────────────────────────────
 # 설정값
 # ─────────────────────────────────────────────
@@ -55,11 +68,74 @@ TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), 'templates')
 # 유틸
 # ─────────────────────────────────────────────
 def log(msg):
-    print(f'[{time.strftime("%H:%M:%S")}] {msg}')
+    print(f'[{time.strftime("%H:%M:%S")}] {msg}', flush=True)
+
+# ─────────────────────────────────────────────
+# 윈도우 창 추적 기능 (HWND)
+# ─────────────────────────────────────────────
+TARGET_HWND = None
+
+def get_target_hwnd():
+    def callback(hwnd, hwnds):
+        if win32gui.IsWindowVisible(hwnd):
+            title = win32gui.GetWindowText(hwnd)
+            if '강의실' in title and 'Chrome' in title:
+                hwnds.append(hwnd)
+        return True
+    hwnds = []
+    win32gui.EnumWindows(callback, hwnds)
+    return hwnds[0] if hwnds else None
 
 def capture(region=None):
-    shot = pyautogui.screenshot(region=region)
-    return cv2.cvtColor(np.array(shot), cv2.COLOR_RGB2BGR)
+    global TARGET_HWND
+    if TARGET_HWND is None or not win32gui.IsWindow(TARGET_HWND):
+        TARGET_HWND = get_target_hwnd()
+
+    if TARGET_HWND is None:
+        # 백그라운드 타겟을 찾지 못하면 기존처럼 전체 화면 캡처
+        shot = pyautogui.screenshot(region=region)
+        return cv2.cvtColor(np.array(shot), cv2.COLOR_RGB2BGR)
+
+    # 윈도우 백그라운드 캡처 (가려져 있어도 캡처 가능)
+    try:
+        left, top, right, bot = win32gui.GetWindowRect(TARGET_HWND)
+        w = right - left
+        h = bot - top
+        if w <= 0 or h <= 0:
+            return np.zeros((100, 100, 3), dtype=np.uint8)
+
+        hwndDC = win32gui.GetWindowDC(TARGET_HWND)
+        mfcDC  = win32ui.CreateDCFromHandle(hwndDC)
+        saveDC = mfcDC.CreateCompatibleDC()
+
+        saveBitMap = win32ui.CreateBitmap()
+        saveBitMap.CreateCompatibleBitmap(mfcDC, w, h)
+        saveDC.SelectObject(saveBitMap)
+
+        # PW_RENDERFULLCONTENT = 3 (하드웨어 가속 창 캡처용 플래그)
+        ctypes.windll.user32.PrintWindow(TARGET_HWND, saveDC.GetSafeHdc(), 3)
+
+        bmpinfo = saveBitMap.GetInfo()
+        bmpstr = saveBitMap.GetBitmapBits(True)
+
+        img = np.frombuffer(bmpstr, dtype=np.uint8).reshape((bmpinfo['bmHeight'], bmpinfo['bmWidth'], 4))
+        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+
+        win32gui.DeleteObject(saveBitMap.GetHandle())
+        saveDC.DeleteDC()
+        mfcDC.DeleteDC()
+        win32gui.ReleaseDC(TARGET_HWND, hwndDC)
+
+        if region:
+            rx, ry, rw, rh = region
+            img = img[ry:ry+rh, rx:rx+rw]
+
+        return img
+    except Exception as e:
+        log(f"  ⚠️ 백그라운드 캡처 실패: {e}")
+        # 오류 시 전체 캡처로 폴백
+        shot = pyautogui.screenshot(region=region)
+        return cv2.cvtColor(np.array(shot), cv2.COLOR_RGB2BGR)
 
 def load_template(name):
     path = os.path.join(TEMPLATES_DIR, name)
@@ -113,21 +189,57 @@ def is_playing(screen_bgr, tpl_playing=None):
         return any(cv2.contourArea(c) > 200 for c in cnts)
 
 def safe_click(x, y, label=''):
+    global TARGET_HWND
+    
+    prev_hwnd = None
+    if TARGET_HWND and win32gui.IsWindow(TARGET_HWND):
+        prev_hwnd = win32gui.GetForegroundWindow()
+        
+        # 최소화되어 있다면 복원
+        if win32gui.IsIconic(TARGET_HWND):
+            win32gui.ShowWindow(TARGET_HWND, win32con.SW_RESTORE)
+            
+        try:
+            # 창을 앞으로 소환
+            win32gui.SetForegroundWindow(TARGET_HWND)
+            time.sleep(0.3)  # 창이 앞으로 나올 시간 대기
+        except Exception as e:
+            log(f"  ⚠️ 팝업 창을 앞으로 가져오는 데 실패: {e}")
+
     sw, sh = pyautogui.size()
     if 0 <= x <= sw and 0 <= y <= sh:
         pyautogui.moveTo(x, y, duration=0.3)
         time.sleep(0.15)
         pyautogui.click()
         log(f'  ✅ 클릭 ({x}, {y}) {label}')
+        
+        # 클릭 후 원래 창으로 포커스 복원
+        if prev_hwnd and prev_hwnd != TARGET_HWND and win32gui.IsWindow(prev_hwnd):
+            time.sleep(0.2)
+            try:
+                if win32gui.IsIconic(prev_hwnd):
+                    win32gui.ShowWindow(prev_hwnd, win32con.SW_RESTORE)
+                win32gui.SetForegroundWindow(prev_hwnd)
+            except Exception:
+                pass
         return True
+        
     log(f'  ⚠️  좌표 범위 초과 ({x}, {y}) — 클릭 취소')
     return False
 
 def screen_offset():
-    """SIDEBAR_REGION이 설정된 경우 화면 좌표 보정값 반환"""
+    """타겟 윈도우가 있으면 윈도우의 절대 좌표를 오프셋으로 반환"""
+    ox, oy = 0, 0
+    if TARGET_HWND and win32gui.IsWindow(TARGET_HWND):
+        try:
+            left, top, right, bot = win32gui.GetWindowRect(TARGET_HWND)
+            ox, oy = left, top
+        except Exception:
+            pass
+            
     if SIDEBAR_REGION:
-        return SIDEBAR_REGION[0], SIDEBAR_REGION[1]
-    return 0, 0
+        return ox + SIDEBAR_REGION[0], oy + SIDEBAR_REGION[1]
+    return ox, oy
 
 # ─────────────────────────────────────────────
 # 클릭 헬퍼
@@ -276,6 +388,13 @@ def run():
                 else:
                     # 현재 재생중 배지도 없고, 이전에 재생중이지도 않았던 경우
                     msg = '⏳ 대기 중... 현재 화면에서 초록색 "재생중" 배지를 찾고 있습니다.'
+                    global TARGET_HWND
+                    if TARGET_HWND:
+                        try:
+                            msg += f' [타겟 창 캡처 중: {win32gui.GetWindowText(TARGET_HWND)}]'
+                        except:
+                            TARGET_HWND = None
+
                     if tpl_complete is not None:
                         complete_matches = find_all_templates(screen, tpl_complete, threshold=0.75)
                         if len(complete_matches) > 0:
