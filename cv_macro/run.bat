@@ -43,13 +43,15 @@ if "%choice%"=="1" (
     echo.
     echo Starting template capture tool...
     .venv\Scripts\python capture_templates.py
+    echo.
+    pause
 ) else if "%choice%"=="2" (
     echo.
-    echo Starting CV macro...
-    .venv\Scripts\python cv_macro.py
+    echo Starting CV macro GUI App...
+    start "" .venv\Scripts\pythonw gui_app.py
+    exit
 ) else (
     echo Invalid choice. Exiting.
+    echo.
+    pause
 )
-
-echo.
-pause

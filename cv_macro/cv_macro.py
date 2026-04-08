@@ -364,7 +364,11 @@ def run_chapter_enter_sequence(tpl_before, tpl_next):
 # ─────────────────────────────────────────────
 # 메인 루프
 # ─────────────────────────────────────────────
+RUNNING = True
+
 def run():
+    global RUNNING
+    RUNNING = True
     log('🤖 AntiGravity CV 매크로 v2.0 시작 (Ctrl+C 로 종료)')
 
     tpl_playing = load_template('badge_playing.png')
@@ -389,7 +393,7 @@ def run():
     was_playing = False
 
     try:
-        while True:
+        while RUNNING:
             screen = capture(SIDEBAR_REGION)
 
             # ── 1. 돌발 상황(팝업 버튼) 감지 및 즉시 클릭 ──
