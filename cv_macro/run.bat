@@ -4,21 +4,19 @@ echo ====================================
 echo   AntiGravity CV Macro Launcher
 echo ====================================
 echo.
-echo Current folder: %CD%
-echo.
 
 if not exist ".venv" (
-    echo [1/3] Creating virtual environment (This will take a minute - please wait!)...
+    echo Creating virtual environment - please wait...
     python -m venv .venv
-    echo   Done.
 )
 
-echo [2/3] Downloading and installing required packages...
+echo Installing packages...
 .venv\Scripts\python.exe -m pip install --upgrade pip
 .venv\Scripts\python.exe -m pip install -r requirements.txt
-echo   Done.
+echo Done! Launching GUI...
 
-echo.
-echo [3/3] Launching GUI (this window will close automatically)...
-cscript //nologo launch_gui.vbs
-exit
+:: CMD 창을 작업표시줄로 최소화
+powershell -command "(New-Object -ComObject Shell.Application).MinimizeAll()" >nul 2>&1
+
+.venv\Scripts\python.exe gui_app.py
+pause
