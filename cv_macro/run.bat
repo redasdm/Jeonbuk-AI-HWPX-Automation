@@ -24,9 +24,9 @@ if not exist ".venv" (
 )
 
 :: 3. Install Packages
-echo [2/3] Installing required packages...
-.venv\Scripts\python -m pip install --upgrade pip >nul 2>&1
-.venv\Scripts\python -m pip install -r requirements.txt >nul 2>&1
+echo [2/3] Installing required packages (this might take a few seconds)...
+.venv\Scripts\python -m pip install -q --upgrade pip
+.venv\Scripts\python -m pip install -q -r requirements.txt
 echo   Done.
 
 :: 4. Launch GUI
