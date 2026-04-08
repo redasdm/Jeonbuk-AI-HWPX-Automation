@@ -18,15 +18,15 @@ if errorlevel 1 (
 
 :: 2. Create Virtual Environment
 if not exist ".venv" (
-    echo [1/3] Creating virtual environment...
+    echo [1/3] Creating virtual environment (This will take a minute - please wait!)...
     python -m venv .venv
     echo   Done.
 )
 
 :: 3. Install Packages
-echo [2/3] Installing required packages (this might take a few seconds)...
-.venv\Scripts\python -m pip install -q --upgrade pip
-.venv\Scripts\python -m pip install -q -r requirements.txt
+echo [2/3] Downloading and installing required packages...
+.venv\Scripts\python -m pip install --upgrade pip
+.venv\Scripts\python -m pip install -r requirements.txt
 echo   Done.
 
 :: 4. Launch GUI
