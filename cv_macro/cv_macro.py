@@ -215,7 +215,7 @@ def safe_click(x, y, label=''):
             win32gui.ShowWindow(TARGET_HWND, win32con.SW_RESTORE)
             
         try:
-            # 강제로 포커스 뺏어오기 (AttachThreadInput 트릭)
+            # 강제로 포커스 뺏어오기 (AttachThreadInput 트릭 + HWND_TOPMOST 강제 소환)
             fg_hwnd = win32gui.GetForegroundWindow()
             if fg_hwnd != TARGET_HWND and fg_hwnd != 0:
                 fg_thread = win32api.GetWindowThreadProcessId(fg_hwnd)[0]
@@ -233,15 +233,19 @@ def safe_click(x, y, label=''):
             else:
                 win32gui.SetForegroundWindow(TARGET_HWND)
             
+            # 윈도우 맨 위로 강제 끌어올리기 (가장 확실한 방법)
+            win32gui.SetWindowPos(TARGET_HWND, win32con.HWND_TOPMOST, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
+            win32gui.SetWindowPos(TARGET_HWND, win32con.HWND_NOTOPMOST, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
             win32gui.BringWindowToTop(TARGET_HWND)
+            
             time.sleep(0.4)  # 창이 안전하게 앞으로 완전히 노출될 시간 확보
         except Exception as e:
             log(f"  ⚠️ 팝업 창을 앞으로 가져오는 데 실패: {e}")
 
     try:
-        # 다중 모니터 환경 대응: 메인 모니터 크기(sw, sh) 제한을 풀고 절대 좌표로 무조건 이동 시도
-        pyautogui.moveTo(x, y, duration=0.3)
-        time.sleep(0.15)
+        # 다중 모니터 환경 대응: 메인 모니터 크기 제한을 풀고 절대 좌표로 무조건 이동
+        pyautogui.moveTo(x, y) # duration 제거하여 즉시 순간이동
+        time.sleep(0.05)       # 이동 직후 마우스 클릭이 씹히지 않도록 아주 짧은 대기
         # 크롬 웹페이지가 너무 빠른 클릭을 무시하는 현상 방지를 위해 딜레이 클릭
         pyautogui.mouseDown()
         time.sleep(0.1)
