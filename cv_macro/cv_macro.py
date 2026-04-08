@@ -454,9 +454,9 @@ def run():
                         befores = find_all_templates(screen, tpl_before)
 
                         if befores:
-                            # ── 같은 차시 내 다음 강의로 이동 (텍스트 클릭) ──
-                            log(f'📋 학습전 {len(befores)}개 발견 → 첫 번째 텍스트 클릭')
-                            click_first_badge_text(befores)
+                            # ── 같은 차시 내 다음 강의로 이동 (배지 아이콘 직접 클릭) ──
+                            log(f'📋 학습전 {len(befores)}개 발견 → 첫 번째 배지 아이콘 직접 클릭')
+                            click_first_badge_icon(befores, label='학습전')
                             time.sleep(2.0)
                             was_playing = False
 
