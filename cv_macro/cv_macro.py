@@ -398,6 +398,7 @@ def run():
 
     debounce    = 0
     was_playing = False
+    prev_state  = None  # 이전 상태 추적 (로그 중복 방지용)
 
     try:
         while RUNNING:
@@ -415,6 +416,7 @@ def run():
                         safe_click(cx + ox, cy + oy, f'[{btn_name}]')
                         time.sleep(2.0)  # 클릭 후 화면 전환 대기
                         interrupted = True
+                        prev_state = None  # 상태 리셋
                         break  # 한 번에 하나씩만 처리
             
             if interrupted:
@@ -424,10 +426,11 @@ def run():
             if is_playing(screen, tpl_playing):
                 if debounce > 0:
                     log('🟢 재생중 배지 재감지 → 디바운스 초기화 (시청 계속)')
-                else:
+                elif prev_state != 'playing':
                     log('▶️ 정상 시청 중... 초록색 "재생중" 배지 감지됨')
                 debounce    = 0
                 was_playing = True
+                prev_state  = 'playing'
 
             else:
                 if was_playing:
@@ -437,6 +440,7 @@ def run():
                     if debounce >= DEBOUNCE_COUNT:
                         debounce    = 0
                         was_playing = False
+                        prev_state  = None
                         log('✨ 강의 완료 감지 → 다음 항목 탐색')
                         time.sleep(1.0)
 
@@ -460,19 +464,21 @@ def run():
                             log('⚠️  학습전 없음 & 다음차시 템플릿 없음 → 수동 조작 필요')
                 else:
                     # 현재 재생중 배지도 없고, 이전에 재생중이지도 않았던 경우
-                    msg = '⏳ 대기 중... 현재 화면에서 초록색 "재생중" 배지를 찾고 있습니다.'
-                    global TARGET_HWND
-                    if TARGET_HWND:
-                        try:
-                            msg += f' [타겟 창 캡처 중: {win32gui.GetWindowText(TARGET_HWND)}]'
-                        except:
-                            TARGET_HWND = None
+                    if prev_state != 'waiting':
+                        msg = '⏳ 대기 중... 초록색 "재생중" 배지를 찾고 있습니다.'
+                        global TARGET_HWND
+                        if TARGET_HWND:
+                            try:
+                                msg += f' [타겟: {win32gui.GetWindowText(TARGET_HWND)}]'
+                            except:
+                                TARGET_HWND = None
 
-                    if tpl_complete is not None:
-                        complete_matches = find_all_templates(screen, tpl_complete, threshold=0.75)
-                        if len(complete_matches) > 0:
-                            msg += f' (참고: "학습완료" 배지 {len(complete_matches)}개 감지됨)'
-                    log(msg)
+                        if tpl_complete is not None:
+                            complete_matches = find_all_templates(screen, tpl_complete, threshold=0.75)
+                            if len(complete_matches) > 0:
+                                msg += f' (학습완료 {len(complete_matches)}개)'
+                        log(msg)
+                        prev_state = 'waiting'
 
             time.sleep(SCAN_INTERVAL)
 
