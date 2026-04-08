@@ -238,8 +238,8 @@ def safe_click(x, y, label=''):
         except Exception as e:
             log(f"  ⚠️ 팝업 창을 앞으로 가져오는 데 실패: {e}")
 
-    sw, sh = pyautogui.size()
-    if 0 <= x <= sw and 0 <= y <= sh:
+    try:
+        # 다중 모니터 환경 대응: 메인 모니터 크기(sw, sh) 제한을 풀고 절대 좌표로 무조건 이동 시도
         pyautogui.moveTo(x, y, duration=0.3)
         time.sleep(0.15)
         # 크롬 웹페이지가 너무 빠른 클릭을 무시하는 현상 방지를 위해 딜레이 클릭
@@ -260,8 +260,12 @@ def safe_click(x, y, label=''):
                 pass
         return True
         
-    log(f'  ⚠️  좌표 범위 초과 ({x}, {y}) — 클릭 취소')
-    return False
+    except pyautogui.FailSafeException:
+        log(f'  ⚠️  페일세이프 발동(마우스 구석 이동) — 클릭 취소')
+        return False
+    except Exception as e:
+        log(f'  ⚠️  클릭 예외 발생 ({x}, {y}): {e}')
+        return False
 
 def screen_offset():
     """타겟 윈도우가 있으면 윈도우의 절대 좌표를 오프셋으로 반환"""
