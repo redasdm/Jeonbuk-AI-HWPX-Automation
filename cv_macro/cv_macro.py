@@ -405,19 +405,25 @@ def run():
             screen = capture(SIDEBAR_REGION)
 
             # ── 1. 돌발 상황(팝업 버튼) 감지 및 즉시 클릭 ──
+            #   (btn_tpl, btn_name, click_offset_y)
+            #   click_offset_y: "다음" 텍스트 → 아래 화살표 버튼 위치로 이동
             interrupted = False
-            for btn_tpl, btn_name in [(tpl_quiz_done, '학습(퀴즈)완료 버튼'), (tpl_next_text, '"다음" 텍스트 버튼')]:
+            interrupt_buttons = [
+                (tpl_quiz_done,  '학습(퀴즈)완료 버튼', 0),
+                (tpl_next_text,  '"다음" 텍스트 → 아래 화살표 클릭', 60),
+            ]
+            for btn_tpl, btn_name, offset_y in interrupt_buttons:
                 if btn_tpl is not None:
                     btn_matches = find_all_templates(screen, btn_tpl, threshold=0.75)
                     if btn_matches:
                         log(f'🚨 돌발 버튼 감지: {btn_name} ➜ 자동 클릭 실행')
                         cx, cy, _ = btn_matches[0]
                         ox, oy = screen_offset()
-                        safe_click(cx + ox, cy + oy, f'[{btn_name}]')
-                        time.sleep(2.0)  # 클릭 후 화면 전환 대기
+                        safe_click(cx + ox, cy + oy + offset_y, f'[{btn_name}]')
+                        time.sleep(2.0)
                         interrupted = True
-                        prev_state = None  # 상태 리셋
-                        break  # 한 번에 하나씩만 처리
+                        prev_state = None
+                        break
             
             if interrupted:
                 continue  # 버튼을 눌렀으면 처음부터 다시 스크린샷 캡처 및 상태 분석
