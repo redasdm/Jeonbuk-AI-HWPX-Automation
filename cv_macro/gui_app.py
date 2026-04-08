@@ -25,18 +25,18 @@ class MacroApp:
 
         # Title Label
         title = tk.Label(root, text="JBStudy CV Macro v2.0", bg="#2b2b2b", fg="#ffffff", font=("Malgun Gothic", 14, "bold"))
-        title.pack(pady=10)
+        title.pack(side="top", pady=10)
 
-        # Log Console
+        # Button Frame (Bottom)
+        btn_frame = tk.Frame(root, bg="#2b2b2b")
+        btn_frame.pack(side="bottom", fill="x", pady=10)
+
+        # Log Console (Middle, fills remaining space)
         self.console = scrolledtext.ScrolledText(root, bg="#1e1e1e", fg="#00ff00", font=("Consolas", 10), state="normal")
-        self.console.pack(expand=True, fill="both", padx=10, pady=5)
+        self.console.pack(side="top", expand=True, fill="both", padx=10, pady=5)
         
         # Redirect stdout
         sys.stdout = GUIStream(self.console)
-
-        # Button Frame
-        btn_frame = tk.Frame(root, bg="#2b2b2b")
-        btn_frame.pack(fill="x", pady=10)
 
         # Control Buttons
         self.btn_start = tk.Button(btn_frame, text="▶ 매크로 시작", font=("Malgun Gothic", 12, "bold"), bg="#4CAF50", fg="white", width=15, command=self.start_macro)

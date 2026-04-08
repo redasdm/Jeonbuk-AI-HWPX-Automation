@@ -1,6 +1,6 @@
 @echo off
 setlocal
-title AntiGravity - CV Macro Setup
+title AntiGravity CV Macro Launcher
 
 echo.
 echo ====================================================
@@ -21,37 +21,15 @@ if not exist ".venv" (
     echo [1/3] Creating virtual environment...
     python -m venv .venv
     echo   Done.
-) else (
-    echo [1/3] Virtual environment already exists. Skipping.
 )
 
 :: 3. Install Packages
-echo.
 echo [2/3] Installing required packages...
-.venv\Scripts\python -m pip install --upgrade pip
-.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python -m pip install --upgrade pip >nul 2>&1
+.venv\Scripts\python -m pip install -r requirements.txt >nul 2>&1
 echo   Done.
 
-:: 4. Select Option
-echo.
-echo [3/3] What would you like to do?
-echo   [1] Capture template images (FIRST TIME SETUP)
-echo   [2] Run CV macro
-set /p choice="Enter 1 or 2: "
-
-if "%choice%"=="1" (
-    echo.
-    echo Starting template capture tool...
-    .venv\Scripts\python capture_templates.py
-    echo.
-    pause
-) else if "%choice%"=="2" (
-    echo.
-    echo Starting CV macro GUI App...
-    start "" .venv\Scripts\pythonw gui_app.py
-    exit
-) else (
-    echo Invalid choice. Exiting.
-    echo.
-    pause
-)
+:: 4. Launch GUI
+echo [3/3] Starting CV macro GUI App...
+start "" ".venv\Scripts\pythonw.exe" gui_app.py
+exit
