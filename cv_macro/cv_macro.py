@@ -148,10 +148,23 @@ def find_all_templates(screen_bgr, template_bgr, threshold=None):
     화면에서 템플릿과 일치하는 모든 위치 반환.
     반환: [(cx, cy, confidence), ...]  — y좌표 오름차순 (위→아래)
     """
-    if template_bgr is None:
+    if template_bgr is None or screen_bgr is None:
         return []
+        
+    sh, sw = screen_bgr.shape[:2]
+    th_h, tw_w = template_bgr.shape[:2]
+    
+    # 크기 검증: 화면(창) 캡처 영역이 템플릿 이미지보다 작으면 OpenCV 에러 발생 방지
+    if sh < th_h or sw < tw_w:
+        return []
+
     th = threshold if threshold is not None else MATCH_THRESHOLD
-    result = cv2.matchTemplate(screen_bgr, template_bgr, cv2.TM_CCOEFF_NORMED)
+    try:
+        result = cv2.matchTemplate(screen_bgr, template_bgr, cv2.TM_CCOEFF_NORMED)
+    except cv2.error as e:
+        log(f"  ⚠️ matchTemplate 오류: {e}")
+        return []
+        
     h, w   = template_bgr.shape[:2]
     locs   = np.where(result >= th)
     matches = []
