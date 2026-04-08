@@ -46,8 +46,11 @@ except ImportError:
     sys.exit(1)
 
 # Ensure console supports utf-8 emojis on Windows
-if sys.platform == 'win32' and sys.stdout is not None:
-    sys.stdout.reconfigure(encoding='utf-8')
+try:
+    if sys.platform == 'win32' and sys.stdout is not None and hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
+except Exception:
+    pass
 
 # ─────────────────────────────────────────────
 # 설정값
