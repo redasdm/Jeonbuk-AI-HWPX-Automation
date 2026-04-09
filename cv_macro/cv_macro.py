@@ -300,16 +300,67 @@ def screen_offset():
 # ─────────────────────────────────────────────
 # 클릭 헬퍼
 # ─────────────────────────────────────────────
+def find_text_left_of_badge(screen_bgr, badge_cx, badge_cy, scan_width=400, scan_height=20):
+    """
+    배지 중심(badge_cx, badge_cy)에서 왼쪽으로 스캔하며
+    실제 글자(어두운 픽셀)가 있는 위치를 찾아 반환.
+    반환: (text_cx, text_cy) 또는 None
+    """
+    h, w = screen_bgr.shape[:2]
+
+    # 스캔 영역: 배지 중심에서 왼쪽으로 scan_width, 높이 scan_height
+    y_start = max(0, badge_cy - scan_height // 2)
+    y_end   = min(h, badge_cy + scan_height // 2)
+    x_start = max(0, badge_cx - scan_width)
+    x_end   = max(0, badge_cx - 20)  # 배지 바로 옆은 건너뛰기
+
+    if x_start >= x_end or y_start >= y_end:
+        return None
+
+    roi = screen_bgr[y_start:y_end, x_start:x_end]
+
+    # 그레이스케일 변환 후 어두운 픽셀(글자) 찾기
+    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+    # 글자는 보통 어두운 색 (< 100), 배경은 밝은 색 (> 200)
+    _, text_mask = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY_INV)
+
+    # 왼쪽부터가 아니라 오른쪽(배지쪽)부터 스캔해서 가장 가까운 글자 영역 찾기
+    cols_with_text = np.where(text_mask.max(axis=0) > 0)[0]
+
+    if len(cols_with_text) == 0:
+        return None
+
+    # 글자가 있는 열들의 중심(가장 오른쪽 글자 ~ 가장 왼쪽 글자의 중간)
+    text_center_x = int((cols_with_text[0] + cols_with_text[-1]) / 2)
+    text_center_y = scan_height // 2
+
+    abs_x = x_start + text_center_x
+    abs_y = y_start + text_center_y
+
+    log(f'  🔎 텍스트 감지: 배지({badge_cx},{badge_cy})에서 왼쪽으로 {badge_cx - abs_x}px 위치에 글자 발견')
+    return (abs_x, abs_y)
+
 def click_first_badge_text(matches, label='학습전 텍스트'):
     """
     학습전 배지 목록에서 가장 위의 항목을 찾아
-    배지 왼쪽 텍스트 영역을 클릭
+    배지 왼쪽의 실제 텍스트 위치를 스캔하여 클릭
     """
     if not matches:
         return False
     bx, by, _ = matches[0]
     ox, oy = screen_offset()
-    return safe_click(bx + ox + CLICK_OFFSET_X, by + oy, f'[{label}]')
+
+    # 현재 화면을 캡처해서 텍스트 위치를 스캔
+    screen = capture(SIDEBAR_REGION)
+    text_pos = find_text_left_of_badge(screen, bx, by)
+
+    if text_pos:
+        tx, ty = text_pos
+        return safe_click(tx + ox, ty + oy, f'[{label}]')
+    else:
+        # 폴백: 텍스트를 못 찾으면 기존 고정 오프셋 사용
+        log(f'  ⚠️ 텍스트 자동 감지 실패 → 고정 오프셋({CLICK_OFFSET_X}px) 사용')
+        return safe_click(bx + ox + CLICK_OFFSET_X, by + oy, f'[{label}]')
 
 def click_first_badge_icon(matches, label='학습전 배지'):
     """
