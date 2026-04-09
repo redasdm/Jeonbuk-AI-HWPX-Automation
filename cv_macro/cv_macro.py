@@ -300,44 +300,59 @@ def screen_offset():
 # ─────────────────────────────────────────────
 # 클릭 헬퍼
 # ─────────────────────────────────────────────
-def find_text_left_of_badge(screen_bgr, badge_cx, badge_cy, scan_width=400, scan_height=20):
+def find_text_left_of_badge(screen_bgr, badge_cx, badge_cy, scan_width=500, scan_height=26):
     """
-    배지 중심(badge_cx, badge_cy)에서 왼쪽으로 스캔하며
-    실제 글자(어두운 픽셀)가 있는 위치를 찾아 반환.
+    배지 중심(badge_cx, badge_cy)과 같은 행에서 왼쪽으로 스캔하며
+    배지에 가장 가까운 텍스트 덩어리(blob)의 중심을 반환.
+    연결 요소(Connected Components) 분석으로 글자 덩어리를 정확히 인식.
     반환: (text_cx, text_cy) 또는 None
     """
     h, w = screen_bgr.shape[:2]
 
-    # 스캔 영역: 배지 중심에서 왼쪽으로 scan_width, 높이 scan_height
+    # 스캔 ROI: 배지 같은 행 ±scan_height/2, 배지에서 왼쪽으로 scan_width
     y_start = max(0, badge_cy - scan_height // 2)
     y_end   = min(h, badge_cy + scan_height // 2)
     x_start = max(0, badge_cx - scan_width)
-    x_end   = max(0, badge_cx - 20)  # 배지 바로 옆은 건너뛰기
+    x_end   = max(0, badge_cx - 15)  # 배지 테두리 바로 옆 15px은 건너뜀
 
     if x_start >= x_end or y_start >= y_end:
         return None
 
     roi = screen_bgr[y_start:y_end, x_start:x_end]
 
-    # 그레이스케일 변환 후 어두운 픽셀(글자) 찾기
+    # 그레이스케일 → 이진화 (어두운 글자 픽셀 추출)
     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-    # 글자는 보통 어두운 색 (< 100), 배경은 밝은 색 (> 200)
-    _, text_mask = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY_INV)
+    _, text_mask = cv2.threshold(gray, 140, 255, cv2.THRESH_BINARY_INV)
 
-    # 왼쪽부터가 아니라 오른쪽(배지쪽)부터 스캔해서 가장 가까운 글자 영역 찾기
-    cols_with_text = np.where(text_mask.max(axis=0) > 0)[0]
+    # 연결 요소(blob) 분석: 각 글자 덩어리를 개별적으로 인식
+    num_labels, _, stats, centroids = cv2.connectedComponentsWithStats(text_mask, connectivity=8)
 
-    if len(cols_with_text) == 0:
+    if num_labels <= 1:
         return None
 
-    # 글자가 있는 열들의 중심(가장 오른쪽 글자 ~ 가장 왼쪽 글자의 중간)
-    text_center_x = int((cols_with_text[0] + cols_with_text[-1]) / 2)
-    text_center_y = scan_height // 2
+    # 배경(0) 제외, 면적 10px 이상 blob만 수집
+    # (blob_right_edge, cx_in_roi, cy_in_roi) 형태로 저장
+    blobs = []
+    for i in range(1, num_labels):
+        area = stats[i, cv2.CC_STAT_AREA]
+        if area < 10:
+            continue
+        blob_right = stats[i, cv2.CC_STAT_LEFT] + stats[i, cv2.CC_STAT_WIDTH]
+        cx_rel = int(centroids[i][0])
+        cy_rel = int(centroids[i][1])
+        blobs.append((blob_right, cx_rel, cy_rel))
 
-    abs_x = x_start + text_center_x
-    abs_y = y_start + text_center_y
+    if not blobs:
+        return None
 
-    log(f'  🔎 텍스트 감지: 배지({badge_cx},{badge_cy})에서 왼쪽으로 {badge_cx - abs_x}px 위치에 글자 발견')
+    # 배지에 가장 가까운 blob = ROI 내에서 오른쪽 끝이 가장 큰 blob
+    blobs.sort(key=lambda b: b[0], reverse=True)
+    _, best_cx_rel, best_cy_rel = blobs[0]
+
+    abs_x = x_start + best_cx_rel
+    abs_y = y_start + best_cy_rel
+
+    log(f'  🔎 텍스트 blob 감지: 배지({badge_cx},{badge_cy}) 기준 → 왼쪽 {badge_cx - abs_x}px, 클릭좌표 ({abs_x},{abs_y})')
     return (abs_x, abs_y)
 
 def click_first_badge_text(matches, label='학습전 텍스트'):
