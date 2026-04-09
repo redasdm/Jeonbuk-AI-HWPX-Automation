@@ -57,7 +57,7 @@ except Exception:
 # ─────────────────────────────────────────────
 SCAN_INTERVAL    = 2.0   # 일반 루프 감시 주기 (초)
 MATCH_THRESHOLD  = 0.75  # 템플릿 매칭 임계값 (0~1, 낮출수록 관대)
-CLICK_OFFSET_X   = -80   # '학습전' 배지 기준으로 왼쪽 텍스트 클릭 오프셋 (px)
+CLICK_OFFSET_X   = -180  # '학습전' 배지 기준으로 왼쪽 텍스트 클릭 오프셋 (px) - 기존 80에서 180으로 대폭 증가하여 텍스트 영역에 도달하게 함
 DEBOUNCE_COUNT   = 2     # '재생중 없음'을 N번 연속 감지 후 행동
 
 # 사이드바만 스캔하려면 (x, y, w, h) 형태로 설정. None = 전체 화면
@@ -230,7 +230,7 @@ def safe_click(x, y, label=''):
             # 강제로 포커스 뺏어오기 (AttachThreadInput 트릭 + HWND_TOPMOST 강제 소환)
             fg_hwnd = win32gui.GetForegroundWindow()
             if fg_hwnd != TARGET_HWND and fg_hwnd != 0:
-                fg_thread = win32api.GetWindowThreadProcessId(fg_hwnd)[0]
+                fg_thread = win32process.GetWindowThreadProcessId(fg_hwnd)[0]
                 current_thread = win32api.GetCurrentThreadId()
                 
                 if fg_thread != current_thread:
