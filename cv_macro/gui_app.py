@@ -14,6 +14,16 @@ import traceback
 import webbrowser
 import ctypes
 
+try:
+    # Windows 8.1+ 용 DPI Awareness (Per-Monitor v2 대응)
+    ctypes.windll.shcore.SetProcessDpiAwareness(2)
+except Exception:
+    try:
+        # Windows Vista, 7, 8 용
+        ctypes.windll.user32.SetProcessDPIAware()
+    except Exception:
+        pass
+
 # ── stdout/stderr가 None인 환경(pythonw 등) 대비 ──
 if sys.stdout is None:
     sys.stdout = io.StringIO()

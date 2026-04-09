@@ -160,46 +160,67 @@ def load_template(name):
     img_array = np.fromfile(path, dtype=np.uint8)
     return cv2.imdecode(img_array, cv2.IMREAD_COLOR)
 
+import math
+
 def find_all_templates(screen_bgr, template_bgr, threshold=None):
     """
-    화면에서 템플릿과 일치하는 모든 위치 반환.
+    화면에서 템플릿과 일치하는 모든 위치 반환 (Multi-Scale 지원).
+    해상도/디스플레이 배율(DPI 125%, 150%)이 달라도 일치하도록
+    템플릿 크기를 60%~140%까지 동적으로 조절하며 찾습니다.
     반환: [(cx, cy, confidence), ...]  — y좌표 오름차순 (위→아래)
     """
     if template_bgr is None or screen_bgr is None:
         return []
         
     sh, sw = screen_bgr.shape[:2]
-    th_h, tw_w = template_bgr.shape[:2]
+    th_orig_h, tw_orig_w = template_bgr.shape[:2]
     
-    # 크기 검증: 화면(창) 캡처 영역이 템플릿 이미지보다 작으면 OpenCV 에러 발생 방지
-    if sh < th_h or sw < tw_w:
-        return []
-
     th = threshold if threshold is not None else MATCH_THRESHOLD
-    try:
-        result = cv2.matchTemplate(screen_bgr, template_bgr, cv2.TM_CCOEFF_NORMED)
-    except cv2.error as e:
-        log(f"  ⚠️ matchTemplate 오류: {e}")
+    found_matches = []
+    
+    # 0.6x 부터 1.4x 까지 15단계 스케일을 변경해가며 매칭 (노트북 등 다양한 스케일 대응)
+    scales = np.linspace(0.6, 1.4, 15)
+    
+    for scale in scales:
+        resized_template = cv2.resize(template_bgr, (0, 0), fx=scale, fy=scale)
+        th_h, tw_w = resized_template.shape[:2]
+        
+        if sh < th_h or sw < tw_w:
+            continue
+            
+        try:
+            result = cv2.matchTemplate(screen_bgr, resized_template, cv2.TM_CCOEFF_NORMED)
+            loc = np.where(result >= th)
+            
+            for pt in zip(*loc[::-1]):
+                max_val = result[pt[1], pt[0]]
+                cx = pt[0] + tw_w // 2
+                cy = pt[1] + th_h // 2
+                found_matches.append((cx, cy, max_val))
+        except Exception:
+            continue
+            
+    if not found_matches:
         return []
         
-    h, w   = template_bgr.shape[:2]
-    locs   = np.where(result >= th)
-    matches = []
-    for pt in zip(*locs[::-1]):
-        cx   = pt[0] + w // 2
-        cy   = pt[1] + h // 2
-        conf = float(result[pt[1], pt[0]])
-        matches.append((cx, cy, conf))
-    matches = _dedup(matches)
-    matches.sort(key=lambda m: m[1])   # 위→아래 정렬
-    return matches
+    # NMS (Non-Maximum Suppression): 가까운 거리의 중복 매치 제거
+    found_matches.sort(key=lambda x: x[2], reverse=True)
+    filtered_matches = []
+    
+    for match in found_matches:
+        cx, cy, val = match
+        is_duplicate = False
+        for fcx, fcy, fval in filtered_matches:
+            if math.hypot(cx - fcx, cy - fcy) < 15:
+                is_duplicate = True
+                break
+        if not is_duplicate:
+            filtered_matches.append(match)
+            
+    # 위에서 아래 순서로 정렬
+    filtered_matches.sort(key=lambda m: m[1])
+    return filtered_matches
 
-def _dedup(matches, min_dist=20):
-    kept = []
-    for m in matches:
-        if not any(abs(m[0]-k[0]) < min_dist and abs(m[1]-k[1]) < min_dist for k in kept):
-            kept.append(m)
-    return kept
 
 def is_playing(screen_bgr, tpl_playing=None):
     """

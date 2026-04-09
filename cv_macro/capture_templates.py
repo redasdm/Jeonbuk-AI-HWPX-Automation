@@ -22,6 +22,15 @@ import numpy as np
 import pyautogui
 import time
 import os
+import ctypes
+
+try:
+    ctypes.windll.shcore.SetProcessDpiAwareness(2)
+except Exception:
+    try:
+        ctypes.windll.user32.SetProcessDPIAware()
+    except Exception:
+        pass
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), 'templates')
 os.makedirs(TEMPLATES_DIR, exist_ok=True)
