@@ -303,56 +303,58 @@ def screen_offset():
 def find_text_left_of_badge(screen_bgr, badge_cx, badge_cy, scan_width=500, scan_height=26):
     """
     배지 중심(badge_cx, badge_cy)과 같은 행에서 왼쪽으로 스캔하며
-    배지에 가장 가까운 텍스트 덩어리(blob)의 중심을 반환.
-    연결 요소(Connected Components) 분석으로 글자 덩어리를 정확히 인식.
+    배지에 가장 가까운 단어 수준 텍스트 덩어리의 중심을 반환.
     반환: (text_cx, text_cy) 또는 None
     """
     h, w = screen_bgr.shape[:2]
 
-    # 스캔 ROI: 배지 같은 행 ±scan_height/2, 배지에서 왼쪽으로 scan_width
     y_start = max(0, badge_cy - scan_height // 2)
     y_end   = min(h, badge_cy + scan_height // 2)
     x_start = max(0, badge_cx - scan_width)
-    x_end   = max(0, badge_cx - 15)  # 배지 테두리 바로 옆 15px은 건너뜀
+    x_end   = max(0, badge_cx - 40)  # 배지에서 최소 40px 이상 떨어진 곳만 스캔
 
     if x_start >= x_end or y_start >= y_end:
         return None
 
     roi = screen_bgr[y_start:y_end, x_start:x_end]
-
-    # 그레이스케일 → 이진화 (어두운 글자 픽셀 추출)
     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+
+    # 이진화: 어두운 글자 추출
     _, text_mask = cv2.threshold(gray, 140, 255, cv2.THRESH_BINARY_INV)
 
-    # 연결 요소(blob) 분석: 각 글자 덩어리를 개별적으로 인식
-    num_labels, _, stats, centroids = cv2.connectedComponentsWithStats(text_mask, connectivity=8)
+    # 팽창(dilation)으로 낱글자들을 단어 단위로 합치기 (가로 방향 위주)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (8, 2))
+    dilated = cv2.dilate(text_mask, kernel, iterations=1)
+
+    # 연결 요소 분석
+    num_labels, _, stats, centroids = cv2.connectedComponentsWithStats(dilated, connectivity=8)
 
     if num_labels <= 1:
         return None
 
-    # 배경(0) 제외, 면적 10px 이상 blob만 수집
-    # (blob_right_edge, cx_in_roi, cy_in_roi) 형태로 저장
+    # 최소 면적 60px 이상, ROI 폭의 5% 이상인 의미 있는 blob만 수집
+    min_area = 60
     blobs = []
     for i in range(1, num_labels):
         area = stats[i, cv2.CC_STAT_AREA]
-        if area < 10:
+        if area < min_area:
             continue
         blob_right = stats[i, cv2.CC_STAT_LEFT] + stats[i, cv2.CC_STAT_WIDTH]
         cx_rel = int(centroids[i][0])
         cy_rel = int(centroids[i][1])
-        blobs.append((blob_right, cx_rel, cy_rel))
+        blobs.append((blob_right, cx_rel, cy_rel, area))
 
     if not blobs:
         return None
 
-    # 배지에 가장 가까운 blob = ROI 내에서 오른쪽 끝이 가장 큰 blob
+    # 배지에 가장 가까운(오른쪽 끝이 가장 큰) blob 선택
     blobs.sort(key=lambda b: b[0], reverse=True)
-    _, best_cx_rel, best_cy_rel = blobs[0]
+    _, best_cx_rel, best_cy_rel, best_area = blobs[0]
 
     abs_x = x_start + best_cx_rel
     abs_y = y_start + best_cy_rel
 
-    log(f'  🔎 텍스트 blob 감지: 배지({badge_cx},{badge_cy}) 기준 → 왼쪽 {badge_cx - abs_x}px, 클릭좌표 ({abs_x},{abs_y})')
+    log(f'  🔎 텍스트 blob 감지 (면적:{best_area}px): 배지({badge_cx},{badge_cy}) 기준 → 왼쪽 {badge_cx - abs_x}px, 클릭좌표 ({abs_x},{abs_y})')
     return (abs_x, abs_y)
 
 def click_first_badge_text(matches, label='학습전 텍스트'):
