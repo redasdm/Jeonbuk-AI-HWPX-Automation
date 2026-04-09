@@ -410,7 +410,7 @@ def run():
             interrupted = False
             interrupt_buttons = [
                 (tpl_quiz_done,  '학습(퀴즈)완료 버튼', 0),
-                (tpl_next_text,  '"다음" 텍스트 → 아래 화살표 클릭', 60),
+                (tpl_next_text,  '"다음" 텍스트 → 아래 화살표 클릭', 35), # 60에서 35로 하향 조정 (너무 많이 내려간다고 하심)
             ]
             for btn_tpl, btn_name, offset_y in interrupt_buttons:
                 if btn_tpl is not None:
@@ -447,7 +447,10 @@ def run():
                         debounce    = 0
                         was_playing = False
                         prev_state  = None
-                        log('✨ 강의 완료 감지 → 다음 항목 탐색')
+                        log('✨ 강의 완료 감지 (현 차시 종료) → 다음 강의 자동 클릭 기능 임시 중단(너무 멀리 클릭되는 문제 방지)')
+                        
+                        # 사용자 요청에 따라 "학습완료" 후 다음 차시/항목 자동 클릭 로직을 일단 작동하지 않도록 주석 처리
+                        """
                         time.sleep(1.0)
 
                         screen  = capture(SIDEBAR_REGION)
@@ -468,6 +471,7 @@ def run():
 
                         else:
                             log('⚠️  학습전 없음 & 다음차시 템플릿 없음 → 수동 조작 필요')
+                        """
                 else:
                     # 현재 재생중 배지도 없고, 이전에 재생중이지도 않았던 경우
                     if prev_state != 'waiting':

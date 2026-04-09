@@ -12,6 +12,7 @@ import os
 import io
 import traceback
 import webbrowser
+import ctypes
 
 # ── stdout/stderr가 None인 환경(pythonw 등) 대비 ──
 if sys.stdout is None:
@@ -41,6 +42,11 @@ class ThreadSafeStream:
     def flush(self):
         pass
 
+# ── GUI 로드 시 CMD(콘솔) 창 숨기기 ──
+if sys.platform == 'win32':
+    hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+    if hwnd:
+        ctypes.windll.user32.ShowWindow(hwnd, 0) # 0 = SW_HIDE
 
 class MacroApp:
     POLL_INTERVAL = 100  # ms 단위로 큐를 확인
