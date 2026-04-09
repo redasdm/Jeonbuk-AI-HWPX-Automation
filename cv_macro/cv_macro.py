@@ -155,7 +155,10 @@ def load_template(name):
     path = os.path.join(TEMPLATES_DIR, name)
     if not os.path.exists(path):
         return None
-    return cv2.imread(path)
+    # cv2.imread는 Windows에서 한글/유니코드 경로를 지원하지 않음
+    # np.fromfile + cv2.imdecode 로 우회 (유니코드 경로 완전 지원)
+    img_array = np.fromfile(path, dtype=np.uint8)
+    return cv2.imdecode(img_array, cv2.IMREAD_COLOR)
 
 def find_all_templates(screen_bgr, template_bgr, threshold=None):
     """
