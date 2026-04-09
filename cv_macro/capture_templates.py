@@ -84,6 +84,7 @@ def main():
         ('badge_before.png',       "'학습전' 회색 배지 아이콘만 드래그해서 선택하세요"),
         ('badge_complete.png',     "'학습완료' 배지 아이콘만 드래그해서 선택하세요 (선택)"),
         ('btn_next_chapter.png',   "'다음 차시' 파란 버튼 전체를 드래그해서 선택하세요"),
+        ('btn_center_play.png',    "화면 중앙의 '재생(세모)' 버튼을 드래그해서 선택하세요 (선택)"),
     ]
 
     print('=' * 55)

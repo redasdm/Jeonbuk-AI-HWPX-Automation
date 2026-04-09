@@ -483,6 +483,7 @@ def run():
     tpl_before  = load_template('badge_before.png')
     tpl_complete= load_template('badge_complete.png')
     tpl_next    = load_template('btn_next_chapter.png')
+    tpl_center_play = load_template('btn_center_play.png')
     
     # 돌발 버튼들
     tpl_quiz_done = load_template('btn_quiz_done.png')
@@ -500,6 +501,7 @@ def run():
     debounce    = 0
     was_playing = False
     prev_state  = None  # 이전 상태 추적 (로그 중복 방지용)
+    center_play_seen_time = None
 
     try:
         while RUNNING:
@@ -527,10 +529,12 @@ def run():
                         break
             
             if interrupted:
+                center_play_seen_time = None
                 continue  # 버튼을 눌렀으면 처음부터 다시 스크린샷 캡처 및 상태 분석
 
             # ── 2. 기본 재생 상태 분석 ──
             if is_playing(screen, tpl_playing):
+                center_play_seen_time = None
                 if debounce > 0:
                     log('🟢 재생중 배지 재감지 → 디바운스 초기화 (시청 계속)')
                 elif prev_state != 'playing':
@@ -541,6 +545,7 @@ def run():
 
             else:
                 if was_playing:
+                    center_play_seen_time = None
                     debounce += 1
                     log(f'🔍 재생중 없음 ({debounce}/{DEBOUNCE_COUNT})')
 
@@ -600,6 +605,7 @@ def run():
                                     click_first_badge_text(valid_befores, label='학습전 텍스트')
                                     time.sleep(3.0) # 클릭 후 화면 전환 및 로딩 대기
                                     prev_state = None
+                                    center_play_seen_time = None
                                 else:
                                     msg += f' (학습완료 감지됨, 아래쪽에 학습전 없음)'
                                     if prev_state != 'waiting':
@@ -613,6 +619,26 @@ def run():
                             if prev_state != 'waiting':
                                 log(msg)
                                 prev_state = 'waiting'
+                                
+                    # ── 중앙 재생 버튼 로직 (기타 이벤트가 없는 경우 5초 대기) ──
+                    if tpl_center_play is not None:
+                        center_matches = find_all_templates(screen, tpl_center_play, threshold=0.75)
+                        if center_matches:
+                            if center_play_seen_time is None:
+                                center_play_seen_time = time.time()
+                                log('👀 화면 중앙 재생 버튼 발견됨! 5초간 대기하며 다른 이벤트 유무를 확인합니다...')
+                            elif time.time() - center_play_seen_time >= 5.0:
+                                log('⏳ 5초 경과! 다른 이벤트가 없으므로 중앙 재생 버튼을 클릭합니다.')
+                                cx, cy, _ = center_matches[0]
+                                ox, oy = screen_offset()
+                                safe_click(cx + ox, cy + oy, '[중앙 재생버튼]')
+                                time.sleep(2.0)
+                                center_play_seen_time = None
+                                prev_state = None
+                        else:
+                            center_play_seen_time = None
+                    else:
+                        center_play_seen_time = None
 
             time.sleep(SCAN_INTERVAL)
 
