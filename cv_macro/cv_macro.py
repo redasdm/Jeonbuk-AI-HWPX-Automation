@@ -67,7 +67,16 @@ SIDEBAR_REGION   = None
 DELAY_AFTER_NEXT_CHAPTER_CLICK = 1.5  # 다음차시 클릭 후 드롭다운 표시 대기
 DELAY_AFTER_CHAPTER_ITEM_CLICK = 3.0  # 차시 항목 클릭 후 새 화면 로드 대기
 
-TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), 'templates')
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, relative_path)
+
+TEMPLATES_DIR = resource_path('templates')
 
 # ─────────────────────────────────────────────
 # 유틸
@@ -399,6 +408,7 @@ def run():
     debounce    = 0
     was_playing = False
     prev_state  = None  # 이전 상태 추적 (로그 중복 방지용)
+    complete_wait_time = 0.0  # 초록색 학습완료가 감지된 후 경과 시간
 
     try:
         while RUNNING:
@@ -437,6 +447,7 @@ def run():
                 debounce    = 0
                 was_playing = True
                 prev_state  = 'playing'
+                complete_wait_time = 0.0  # 재생 시작 시 대기 시간 초기화
 
             else:
                 if was_playing:
@@ -486,9 +497,44 @@ def run():
                         if tpl_complete is not None:
                             complete_matches = find_all_templates(screen, tpl_complete, threshold=0.75)
                             if len(complete_matches) > 0:
-                                msg += f' (학습완료 {len(complete_matches)}개)'
-                        log(msg)
-                        prev_state = 'waiting'
+                                complete_wait_time += SCAN_INTERVAL
+                                
+                                # 5초 이상 "학습완료" 상태에서 "재생중"으로 안 넘어가면
+                                if complete_wait_time >= 5.0:
+                                    log(f'⏰ "학습완료" 후 5초 경과 → 아래쪽 "학습전" 항목 탐색 중...')
+                                    last_complete_y = complete_matches[-1][1]  # 가장 아래쪽에 있는 학습완료 배지의 Y좌표
+                                    befores = find_all_templates(screen, tpl_before)
+                                    
+                                    # 학습완료 배지보다 Y좌표가 큰(아래에 있는) 학습전 배지만 필터링
+                                    valid_befores = [b for b in befores if b[1] > last_complete_y + 5]
+                                    valid_befores.sort(key=lambda m: m[1])
+                                    
+                                    if valid_befores:
+                                        log(f'🎯 "학습완료" 아래쪽에서 "학습전" 발견! 왼쪽 텍스트 클릭')
+                                        click_first_badge_text(valid_befores, label='학습전 텍스트')
+                                        complete_wait_time = 0.0  # 타이머 리셋
+                                        time.sleep(2.0)
+                                    else:
+                                        pass # 아래쪽에 학습전이 없다면 가만히 둠 (다음 차시 버튼 동작을 우회하거나 대기)
+                                    
+                                    # 5초 메시지 연달아 안 나오게 살짝 딜레이 또는 처리
+                                    prev_state = None
+                                
+                                else:
+                                    msg += f' (학습완료 {len(complete_matches)}개 감지, 5초 대기 중... {int(complete_wait_time)}s)'
+                                    if prev_state != 'waiting':
+                                        log(msg)
+                                        prev_state = 'waiting'
+                            else:
+                                complete_wait_time = 0.0
+                                if prev_state != 'waiting':
+                                    log(msg)
+                                    prev_state = 'waiting'
+                        else:
+                            complete_wait_time = 0.0
+                            if prev_state != 'waiting':
+                                log(msg)
+                                prev_state = 'waiting'
 
             time.sleep(SCAN_INTERVAL)
 
