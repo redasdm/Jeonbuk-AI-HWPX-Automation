@@ -11,6 +11,7 @@ import sys
 import os
 import io
 import traceback
+import webbrowser
 
 # ── stdout/stderr가 None인 환경(pythonw 등) 대비 ──
 if sys.stdout is None:
@@ -46,8 +47,8 @@ class MacroApp:
 
     def __init__(self, root):
         self.root = root
-        self.root.title("AntiGravity CV Macro v2.0")
-        self.root.geometry("620x420")
+        self.root.title("Wrist Protector")
+        self.root.geometry("620x450")
         self.root.minsize(400, 300)
         self.root.configure(bg="#2b2b2b")
         self.root.attributes("-topmost", True)
@@ -58,11 +59,21 @@ class MacroApp:
 
         # ── Title ──
         title = tk.Label(
-            root, text="🤖  JBStudy CV Macro v2.0",
+            root, text="🛡️ 전북 연수원 손목 지킴이 (월급루팡 모드)",
             bg="#2b2b2b", fg="#ffffff",
             font=("Malgun Gothic", 14, "bold"),
         )
         title.pack(side="top", pady=(10, 5))
+
+        # ── 포털 접속 버튼 ──
+        portal_btn = tk.Button(
+            root, text="🌐 교육연수포털 접속하기",
+            font=("Malgun Gothic", 9, "underline"),
+            bg="#2b2b2b", fg="#4da6ff",
+            relief="flat", cursor="hand2", activebackground="#2b2b2b", activeforeground="#99ccff",
+            command=lambda: webbrowser.open("https://www.jbstudy.kr/")
+        )
+        portal_btn.pack(side="top", pady=(0, 5))
 
         # ── 상태 표시 ──
         self.status_var = tk.StringVar(value="⏸  대기 중")
