@@ -1,0 +1,8 @@
+pyautogui
+pygetwindow
+pynput
+openpyxl
+pyperclip
+Pillow
+numpy
+winsdk
