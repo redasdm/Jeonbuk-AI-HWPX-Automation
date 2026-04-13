@@ -303,7 +303,10 @@ class App(tk.Tk):
                     searcher.search(name)
                     time.sleep(self.config_mgr.get("delay_after_search", 1.5))
 
-                    ok = matcher.find_and_click(org, name=name, person_label=f"{name}_{idx}")
+                    ok = matcher.find_and_click(
+                        org, name=name, person_label=f"{name}_{idx}",
+                        searcher=searcher,
+                    )
                     if ok:
                         success += 1
                         self._log("  ✓ 추가 성공")

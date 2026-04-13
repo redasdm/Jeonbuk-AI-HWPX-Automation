@@ -10,7 +10,7 @@ import logging
 import ctypes
 import numpy as np
 import pyautogui
-from PIL import Image, ImageGrab, ImageEnhance
+from PIL import Image, ImageGrab
 
 from ocr_engine import WindowsOCR
 
@@ -147,12 +147,23 @@ class ResultMatcher:
             os.makedirs(DEBUG_DIR, exist_ok=True)
             img.save(os.path.join(DEBUG_DIR, f"{label}_raw.png"))
 
-        scale = 2.0
+        scale = 4.0
         w, h = img.size
         img = img.resize((int(w*scale), int(h*scale)), Image.LANCZOS)
-        img = ImageEnhance.Contrast(img).enhance(1.5)
 
-        return np.array(img.convert("RGB")), d * scale
+        # ── OpenCV 전처리: 회색 획이 얇은 한글도 인식 가능하게 ────────────
+        gray = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2GRAY)
+
+        # 임계값 190: 흰 배경(255)은 남기고 회색 텍스트(~140-190)까지 포착
+        _, binary = cv2.threshold(gray, 190, 255, cv2.THRESH_BINARY)
+        result = cv2.cvtColor(binary, cv2.COLOR_GRAY2RGB)
+
+        if save_debug:
+            Image.fromarray(result).save(
+                os.path.join(DEBUG_DIR, f"{label}_processed.png")
+            )
+
+        return result, d * scale
 
     # ── 행 그룹핑 ─────────────────────────────────────────────────────────────
     def _group_rows(self, items: list[dict], scale: float = 1.0) -> list[list[dict]]:
@@ -261,11 +272,42 @@ class ResultMatcher:
         logger.warning(f"  링 버튼 미감지 → offset 사용: ({br[0] - offset}, {screen_y})")
         return br[0] - offset, screen_y
 
+    # ── 검색 결과 검증 ─────────────────────────────────────────────────────
+    def _verify_search_results(self, name: str, searcher) -> bool:
+        """
+        검색한 이름이 OCR 결과에 포함되어 있는지 확인.
+        없으면 재검색 1회 시도.
+        """
+        img, scale = self._capture(save_debug=False, label="_verify")
+        items = self.ocr.recognize(img)
+        all_text = " ".join(i["text"] for i in items)
+
+        if name in all_text:
+            return True
+
+        logger.warning(f"  검색 결과에 '{name}'이 없음 → 재검색")
+        searcher.search(name)
+        time.sleep(self.config.get("delay_after_search", 1.5))
+
+        img2, _ = self._capture(save_debug=False, label="_verify2")
+        items2 = self.ocr.recognize(img2)
+        all_text2 = " ".join(i["text"] for i in items2)
+        if name in all_text2:
+            return True
+
+        logger.warning(f"  재검색 후에도 '{name}' 미발견")
+        return False
+
     # ── 메인 ────────────────────────────────────────────────────────────────
-    def find_and_click(self, org: str, name: str = "", person_label: str = "") -> bool:
+    def find_and_click(self, org: str, name: str = "",
+                       person_label: str = "", searcher=None) -> bool:
         tl  = self.config.get("results_tl")
         results_top = tl[1]
         max_scrolls = self.config.get("max_scroll_attempts", 15)
+
+        # 검색 결과에 이름이 있는지 먼저 확인
+        if searcher and name:
+            self._verify_search_results(name, searcher)
 
         self._scroll_to_top()
         prev_texts: frozenset = frozenset()
@@ -296,15 +338,20 @@ class ResultMatcher:
                 btn_x, btn_y = self._find_ring_button(screen_y)
 
                 logger.info(f"  ✓ 매칭: '{row_text[:40]}' → 클릭 ({btn_x}, {btn_y})")
-                pyautogui.click(btn_x, btn_y)
-                time.sleep(self.config.get("delay_after_click", 0.3))
 
-                if self._verify_selected(btn_x, btn_y):
-                    return True
-                logger.warning("  선택 미확인, 재시도...")
-                pyautogui.click(btn_x, btn_y)
-                time.sleep(0.4)
-                return True
+                for attempt_click in range(3):
+                    pyautogui.click(btn_x, btn_y)
+                    time.sleep(self.config.get("delay_after_click", 0.5))
+
+                    if self._verify_selected(btn_x, btn_y):
+                        logger.info(f"  ✓ 버튼 파란색 확인 (시도 {attempt_click + 1}회)")
+                        return True
+
+                    logger.warning(f"  버튼 미활성 (시도 {attempt_click + 1}/3) → 재클릭")
+                    time.sleep(0.3)
+
+                logger.warning("  3회 클릭 후에도 버튼 미활성 — 추가 실패")
+                return False
 
             current_texts = frozenset(self._row_text(r) for r in rows)
             if current_texts and current_texts == prev_texts:
@@ -320,12 +367,18 @@ class ResultMatcher:
         logger.warning(f"  '{name}({org})' 일치 항목 없음")
         return False
 
-    # ── 선택 확인 ─────────────────────────────────────────────────────────────
+    # ── 선택 확인 (버튼이 파란색으로 바뀌었는지) ──────────────────────────────
     def _verify_selected(self, cx: int, cy: int) -> bool:
+        """
+        링 버튼 클릭 후 파란색 픽셀이 일정 수 이상이면 선택된 것으로 판단.
+        캡처 영역을 버튼 반경 25px로 넓혀서 오감지 줄임.
+        """
         try:
-            region = ImageGrab.grab(bbox=(cx-15, cy-15, cx+15, cy+15))
+            region = ImageGrab.grab(bbox=(cx - 25, cy - 25, cx + 25, cy + 25))
             arr = np.array(region)
             r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
-            return int(np.sum((r < 120) & (g < 180) & (b > 150))) > 20
+            blue_pixels = int(np.sum((r < 140) & (g < 200) & (b > 160)))
+            logger.debug(f"  파란색 픽셀 수: {blue_pixels}")
+            return blue_pixels > 15
         except Exception:
             return True

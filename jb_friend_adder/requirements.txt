@@ -6,3 +6,4 @@ pyperclip
 Pillow
 numpy
 winsdk
+easyocr
