@@ -302,98 +302,90 @@ class TokenMonitorWidget(tk.Frame):
         super().destroy()
 
     def open_settings(self):
-        import json
         settings_win = tk.Toplevel(self)
-        settings_win.title("Account & Quota Settings")
+        settings_win.title("OAuth Settings Dashboard")
         settings_win.geometry("380x285")
-        settings_win.transient(self.winfo_toplevel())
-        settings_win.grab_set()
+        try:
+            settings_win.transient(self.winfo_toplevel())
+            settings_win.grab_set()
+        except Exception:
+            pass
         
-        lbl_title = tk.Label(settings_win, text="Account & Quota Configuration", font=("Helvetica", 10, "bold"))
+        lbl_title = tk.Label(settings_win, text="OAuth Account Dashboard", font=("Helvetica", 11, "bold"))
         lbl_title.pack(pady=10)
         
         form_frame = tk.Frame(settings_win)
         form_frame.pack(padx=20, fill=tk.BOTH, expand=True)
         
+        # Query latest metrics
+        self.engine.get_metrics()
+        metrics = getattr(self.engine, 'metrics', {})
+        if not isinstance(metrics, dict):
+            metrics = {}
+            
+        codex_metrics = metrics.get('codex', {})
+        codex_account = codex_metrics.get('account', 'chatgpt')
+        codex_plan = codex_metrics.get('plan', 'ChatGPT Plus')
+        
+        claude_metrics = metrics.get('claude_code', {})
+        claude_account = claude_metrics.get('account', 'claud17@edusub.co.kr')
+        claude_status = claude_metrics.get('status', '')
+        
+        antigravity_metrics = metrics.get('antigravity', {})
+        antigravity_account = antigravity_metrics.get('account', 'redas')
+        
         # 1. Codex
-        tk.Label(form_frame, text="Codex Account:").grid(row=0, column=0, sticky=tk.W, pady=5)
-        ent_codex_acc = tk.Entry(form_frame, width=25)
-        ent_codex_acc.grid(row=0, column=1, pady=5)
+        lbl_codex_hdr = tk.Label(form_frame, text="Codex", font=("Helvetica", 10, "bold"))
+        lbl_codex_hdr.grid(row=0, column=0, sticky=tk.W, pady=(5, 2))
         
-        tk.Label(form_frame, text="Codex Quota:").grid(row=1, column=0, sticky=tk.W, pady=5)
-        ent_codex_quota = tk.Entry(form_frame, width=25)
-        ent_codex_quota.grid(row=1, column=1, pady=5)
+        lbl_codex_acc = tk.Label(form_frame, text=f"계정: {codex_account}", font=("Helvetica", 9))
+        lbl_codex_acc.grid(row=1, column=0, columnspan=2, sticky=tk.W, padx=10)
         
-        # 2. Antigravity
-        tk.Label(form_frame, text="Antigravity Account:").grid(row=2, column=0, sticky=tk.W, pady=5)
-        ent_antigravity_acc = tk.Entry(form_frame, width=25)
-        ent_antigravity_acc.grid(row=2, column=1, pady=5)
+        lbl_codex_plan = tk.Label(form_frame, text=f"플랜: {codex_plan}", font=("Helvetica", 9))
+        lbl_codex_plan.grid(row=2, column=0, columnspan=2, sticky=tk.W, padx=10)
         
-        tk.Label(form_frame, text="Antigravity Quota:").grid(row=3, column=0, sticky=tk.W, pady=5)
-        ent_antigravity_quota = tk.Entry(form_frame, width=25)
-        ent_antigravity_quota.grid(row=3, column=1, pady=5)
+        # 2. Claude Code
+        lbl_claude_hdr = tk.Label(form_frame, text="Claude Code", font=("Helvetica", 10, "bold"))
+        lbl_claude_hdr.grid(row=3, column=0, sticky=tk.W, pady=(10, 2))
         
-        # 3. Claude Code
-        tk.Label(form_frame, text="Claude Code Email:").grid(row=4, column=0, sticky=tk.W, pady=5)
-        ent_claude_acc = tk.Entry(form_frame, width=25)
-        ent_claude_acc.grid(row=4, column=1, pady=5)
+        lbl_claude_acc = tk.Label(form_frame, text=f"계정: {claude_account}", font=("Helvetica", 9))
+        lbl_claude_acc.grid(row=4, column=0, columnspan=2, sticky=tk.W, padx=10)
         
-        tk.Label(form_frame, text="Claude Code Quota ($):").grid(row=5, column=0, sticky=tk.W, pady=5)
-        ent_claude_quota = tk.Entry(form_frame, width=25)
-        ent_claude_quota.grid(row=5, column=1, pady=5)
-        
-        # Pre-fill
-        metrics = self.engine.get_metrics()
-        ent_codex_acc.insert(0, self.engine.metrics.get('codex', {}).get('account', 'chatgpt'))
-        ent_codex_quota.insert(0, str(self.engine.metrics.get('codex', {}).get('weekly_quota', 10000)))
-        
-        ent_antigravity_acc.insert(0, self.engine.metrics.get('antigravity', {}).get('account', 'redas'))
-        ent_antigravity_quota.insert(0, str(self.engine.metrics.get('antigravity', {}).get('weekly_quota', 5000)))
-        
-        ent_claude_acc.insert(0, self.engine.metrics.get('claude_code', {}).get('account', 'claud17@edusub.co.kr'))
-        ent_claude_quota.insert(0, str(self.engine.metrics.get('claude_code', {}).get('weekly_quota', 50)))
-        
-        def save_settings():
-            c_acc = ent_codex_acc.get()
-            c_quota = ent_codex_quota.get()
-            a_acc = ent_antigravity_acc.get()
-            a_quota = ent_antigravity_quota.get()
-            cl_acc = ent_claude_acc.get()
-            cl_quota = ent_claude_quota.get()
+        if claude_status == "Active":
+            claude_status_text = "OAuth 활성"
+            claude_status_fg = "green"
+        else:
+            claude_status_text = "로그인 안 됨 ('claude' 실행 필요)"
+            claude_status_fg = "red"
             
-            config_data = {
-                'codex': {
-                    'account': c_acc,
-                    'remaining_tokens': float(metrics.get('codex', {}).get('remaining_tokens', 10000.0)),
-                    'min_unit': 'requests',
-                    'weekly_quota': int(c_quota) if c_quota.isdigit() else 10000
-                },
-                'antigravity': {
-                    'account': a_acc,
-                    'remaining_tokens': float(metrics.get('antigravity', {}).get('remaining_tokens', 5000.0)),
-                    'min_unit': 'tokens',
-                    'weekly_quota': int(a_quota) if a_quota.isdigit() else 5000
-                },
-                'claude_code': {
-                    'account': cl_acc,
-                    'remaining_tokens': float(metrics.get('claude_code', {}).get('remaining_tokens', 50.0)),
-                    'min_unit': 'USD',
-                    'weekly_quota': int(cl_quota) if cl_quota.isdigit() else 50
-                }
-            }
-            
-            try:
-                with open(self.engine.config_path, 'w', encoding='utf-8') as f:
-                    json.dump(config_data, f, indent=2, ensure_ascii=False)
-            except Exception:
-                pass
-                
+        lbl_claude_status = tk.Label(form_frame, text=f"상태: {claude_status_text}", font=("Helvetica", 9, "bold"), fg=claude_status_fg)
+        lbl_claude_status.grid(row=5, column=0, columnspan=2, sticky=tk.W, padx=10)
+        
+        # 3. Antigravity
+        lbl_anti_hdr = tk.Label(form_frame, text="Antigravity", font=("Helvetica", 10, "bold"))
+        lbl_anti_hdr.grid(row=6, column=0, sticky=tk.W, pady=(10, 2))
+        
+        lbl_anti_acc = tk.Label(form_frame, text=f"계정: {antigravity_account}", font=("Helvetica", 9))
+        lbl_anti_acc.grid(row=7, column=0, columnspan=2, sticky=tk.W, padx=10)
+        
+        lbl_anti_status = tk.Label(form_frame, text="상태: 무제한 (Free Tier 활성)", font=("Helvetica", 9))
+        lbl_anti_status.grid(row=8, column=0, columnspan=2, sticky=tk.W, padx=10)
+        
+        # Bottom Buttons
+        btn_frame = tk.Frame(settings_win)
+        btn_frame.pack(fill=tk.X, side=tk.BOTTOM, pady=15)
+        
+        def refresh_dashboard():
             self.engine.load_config()
             self.refresh_ui()
             settings_win.destroy()
+            self.open_settings()
             
-        btn_save = tk.Button(settings_win, text="Save", command=save_settings, width=10)
-        btn_save.pack(pady=10)
+        btn_refresh = tk.Button(btn_frame, text="상태 새로고침", command=refresh_dashboard, width=15)
+        btn_refresh.pack(side=tk.LEFT, padx=(40, 10), expand=True)
+        
+        btn_close = tk.Button(btn_frame, text="닫기", command=settings_win.destroy, width=15)
+        btn_close.pack(side=tk.RIGHT, padx=(10, 40), expand=True)
 
 if __name__ == '__main__':
     root = tk.Tk()
