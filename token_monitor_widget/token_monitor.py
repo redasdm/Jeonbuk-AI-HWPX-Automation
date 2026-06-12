@@ -73,6 +73,38 @@ class TokenMonitorEngine:
         except Exception:
             return {}
 
+    def _fetch_claude_usage_thread(self, access_token: str):
+        import urllib.request
+        import json
+
+        url = "https://api.anthropic.com/api/oauth/usage"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "anthropic-beta": "oauth-2025-04-20",
+                "User-Agent": "claude-code/2.1.173",
+                "Content-Type": "application/json"
+            },
+            method="GET"
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=5) as response:
+                body = response.read().decode('utf-8')
+                res_data = json.loads(body)
+                five_hour = res_data.get("five_hour", {})
+                utilization = five_hour.get("utilization", 0.0)
+                resets_at = five_hour.get("resets_at", "")
+                
+                # Update cache
+                self.claude_usage_cache["remaining_tokens"] = max(0.0, 100.0 - float(utilization))
+                self.claude_usage_cache["resets_at"] = resets_at
+                self.claude_usage_cache["status"] = "Active"
+        except Exception as e:
+            self.claude_usage_cache["status"] = f"Error: {str(e)}"
+        finally:
+            self.claude_fetching = False
+
     def _detect_accounts(self):
         accounts = {
             'codex': 'chatgpt',
@@ -267,39 +299,67 @@ class TokenMonitorEngine:
         """Returns current metrics, advancing simulation if in simulation mode."""
         current_time = time.time()
         
-        # Check if we are in production and should read .claude.json
+        # Check if we are in production and should read Claude OAuth & Codex auth
         import sys
         is_test = 'unittest' in sys.modules or 'pytest' in sys.modules or any('verify_widget' in arg or 'test' in arg for arg in sys.argv)
         if self.config_path == "config.json" and not is_test:
-            claude_path = r"C:\Users\redas\.claude.json"
-            if os.path.exists(claude_path):
+            # Update local accounts
+            accounts = self._detect_accounts()
+            if 'claude_code' not in self.metrics:
+                self.metrics['claude_code'] = {}
+            if 'codex' not in self.metrics:
+                self.metrics['codex'] = {}
+            self.metrics['claude_code']['account'] = accounts['claude_code']
+            self.metrics['codex']['account'] = accounts['codex']
+            
+            # Codex auth & plan loading
+            codex_auth = r"C:\Users\redas\.codex\auth.json"
+            if os.path.exists(codex_auth):
                 try:
-                    mtime = os.path.getmtime(claude_path)
-                    if self.last_claude_mtime is None or mtime != self.last_claude_mtime:
-                        with open(claude_path, 'r', encoding='utf-8') as f:
-                            data = json.load(f)
-                        total_cost = 0.0
-                        if "projects" in data:
-                            for p, val in data["projects"].items():
-                                if isinstance(val, dict):
-                                    cost = val.get("lastCost")
-                                    if cost is not None:
-                                        total_cost += float(cost)
+                    with open(codex_auth, 'r', encoding='utf-8') as f:
+                        c_data = json.load(f)
+                    c_tok = c_data.get("tokens", {}).get("access_token")
+                    if c_tok:
+                        c_payload = self._decode_jwt(c_tok)
+                        c_plan = c_payload.get("https://api.openai.com/auth", {}).get("chatgpt_plan_type", "plus")
+                        self.metrics['codex']['plan'] = f"ChatGPT {c_plan.capitalize()}"
+                    else:
+                        self.metrics['codex']['plan'] = "ChatGPT Plus"
+                except Exception:
+                    self.metrics['codex']['plan'] = "ChatGPT Plus"
+            else:
+                self.metrics['codex']['plan'] = "ChatGPT Plus"
+
+            # Claude OAuth credentials & fetching
+            creds_path = r"C:\Users\redas\.claude\.credentials.json"
+            has_token = False
+            if os.path.exists(creds_path):
+                try:
+                    with open(creds_path, 'r', encoding='utf-8') as f:
+                        creds = json.load(f)
+                    access_token = creds.get("claudeAiOauth", {}).get("accessToken")
+                    if access_token:
+                        has_token = True
+                        import threading
+                        now = time.time()
+                        if now - self.last_claude_fetch_time > 60 and not self.claude_fetching:
+                            self.claude_fetching = True
+                            self.last_claude_fetch_time = now
+                            t = threading.Thread(target=self._fetch_claude_usage_thread, args=(access_token,))
+                            t.daemon = True
+                            t.start()
                         
-                        quota = self.metrics.get('claude_code', {}).get('weekly_quota', 50)
-                        if quota is None or quota <= 0:
-                            quota = 50
-                        
-                        rem = max(0.0, float(quota) - total_cost)
-                        
-                        if 'claude_code' not in self.metrics:
-                            self.metrics['claude_code'] = {}
-                        self.metrics['claude_code']['remaining_tokens'] = rem
-                        self.metrics['claude_code']['weekly_quota'] = quota
-                        self.metrics['claude_code']['min_unit'] = "USD"
-                        self.last_claude_mtime = mtime
+                        # Populate metrics from cache
+                        self.metrics['claude_code']['remaining_tokens'] = self.claude_usage_cache["remaining_tokens"]
+                        self.metrics['claude_code']['weekly_quota'] = 100
+                        self.metrics['claude_code']['min_unit'] = "%"
+                        self.metrics['claude_code']['resets_at'] = self.claude_usage_cache["resets_at"]
+                        self.metrics['claude_code']['status'] = self.claude_usage_cache.get("status", "Active")
                 except Exception:
                     pass
+            
+            if not has_token:
+                self.metrics['claude_code']['status'] = "Needs Login"
 
         # 1. Automatic Quota Reset Check (weekly reset = 7 days or 604,800 seconds)
         try:
