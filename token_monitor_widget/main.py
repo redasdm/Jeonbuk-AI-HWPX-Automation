@@ -2,6 +2,26 @@ import tkinter as tk
 import token_monitor
 import math
 
+def format_tokens(val):
+    if val is None:
+        return "0"
+    try:
+        val = float(val)
+    except Exception:
+        return str(val)
+        
+    if val >= 1_000_000:
+        return f"{val / 1_000_000:.1f}M"
+    elif val >= 1_000:
+        return f"{val / 1_000:.1f}K"
+    else:
+        try:
+            if val.is_integer():
+                return str(int(val))
+        except AttributeError:
+            pass
+        return f"{val:.1f}"
+
 class TokenMonitorWidget(tk.Frame):
     """
     Tkinter GUI Widget for the Token Monitor.
@@ -103,6 +123,23 @@ class TokenMonitorWidget(tk.Frame):
         if is_production:
             if name.lower() == "codex":
                 plan = data.get('plan', 'ChatGPT Plus')
+                has_budget = data.get('has_budget', False)
+                status = data.get('status', 'Active')
+                
+                if status.startswith("Error"):
+                    return f"Codex{account_suffix}: 연결 오류"
+                    
+                if has_budget:
+                    rem = data.get('remaining_tokens')
+                    quota = data.get('weekly_quota')
+                    if rem is not None and quota is not None and quota > 0:
+                        pct = (rem / quota) * 100.0
+                        return f"Codex{account_suffix}: {format_tokens(rem)} / {format_tokens(quota)} 남음 ({pct:.1f}%)"
+                        
+                # Fallback or used count display
+                used = data.get('tokens_used', 0.0)
+                if used > 0:
+                    return f"Codex{account_suffix}: {plan} ({format_tokens(used)} 사용됨)"
                 return f"Codex{account_suffix}: {plan} (활성)"
             elif name.lower() == "antigravity":
                 return f"Antigravity{account_suffix}: 무제한 (Free Tier)"

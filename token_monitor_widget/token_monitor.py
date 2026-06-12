@@ -44,6 +44,17 @@ class TokenMonitorEngine:
         self.last_claude_fetch_time = 0
         self.claude_fetching = False
         
+        # Codex usage cache
+        self.codex_usage_cache = {
+            "remaining_tokens": None,
+            "weekly_quota": None,
+            "tokens_used": 0.0,
+            "has_budget": False,
+            "status": "Active"
+        }
+        self.last_codex_fetch_time = 0
+        self.codex_fetching = False
+        
         # Expose all common names searched by verify_widget.py
         self._metrics = self.metrics
         self.data = self.metrics
@@ -104,6 +115,75 @@ class TokenMonitorEngine:
             self.claude_usage_cache["status"] = f"Error: {str(e)}"
         finally:
             self.claude_fetching = False
+
+    def _fetch_codex_usage_thread(self):
+        import sqlite3
+        import os
+        
+        state_db = r"C:\Users\redas\.codex\state_5.sqlite"
+        goals_db = r"C:\Users\redas\.codex\goals_1.sqlite"
+        
+        if not os.path.exists(state_db) or not os.path.exists(goals_db):
+            self.codex_fetching = False
+            return
+            
+        try:
+            # 1. Fetch active thread from state_5.sqlite
+            conn = sqlite3.connect(state_db, timeout=5)
+            cursor = conn.cursor()
+            cwd_path = r"c:\Users\redas\OneDrive\Desktop\AntiGravity"
+            cursor.execute(
+                "SELECT id, tokens_used FROM threads WHERE cwd = ? ORDER BY updated_at DESC LIMIT 1;",
+                (cwd_path,)
+            )
+            row = cursor.fetchone()
+            if not row:
+                cursor.execute("SELECT id, tokens_used FROM threads ORDER BY updated_at DESC LIMIT 1;")
+                row = cursor.fetchone()
+            conn.close()
+            
+            if not row:
+                self.codex_fetching = False
+                return
+                
+            thread_id, thread_tokens_used = row
+            
+            # 2. Query budget from goals_1.sqlite
+            conn_goals = sqlite3.connect(goals_db, timeout=5)
+            cursor_goals = conn_goals.cursor()
+            cursor_goals.execute(
+                "SELECT token_budget, tokens_used FROM thread_goals WHERE thread_id = ? ORDER BY updated_at_ms DESC LIMIT 1;",
+                (thread_id,)
+            )
+            goal_row = cursor_goals.fetchone()
+            conn_goals.close()
+            
+            # 3. Compute remaining / budget
+            has_budget = False
+            remaining_tokens = None
+            weekly_quota = None
+            tokens_used = float(thread_tokens_used) if thread_tokens_used is not None else 0.0
+            
+            if goal_row:
+                token_budget, goal_tokens_used = goal_row
+                if token_budget is not None:
+                    has_budget = True
+                    weekly_quota = float(token_budget)
+                    actual_used = float(goal_tokens_used) if goal_tokens_used is not None else tokens_used
+                    remaining_tokens = max(0.0, weekly_quota - actual_used)
+                    tokens_used = actual_used
+                    
+            # 4. Update Cache
+            self.codex_usage_cache["remaining_tokens"] = remaining_tokens
+            self.codex_usage_cache["weekly_quota"] = weekly_quota
+            self.codex_usage_cache["tokens_used"] = tokens_used
+            self.codex_usage_cache["has_budget"] = has_budget
+            self.codex_usage_cache["status"] = "Active"
+            
+        except Exception as e:
+            self.codex_usage_cache["status"] = f"Error: {str(e)}"
+        finally:
+            self.codex_fetching = False
 
     def _detect_accounts(self):
         accounts = {
@@ -360,6 +440,23 @@ class TokenMonitorEngine:
             
             if not has_token:
                 self.metrics['claude_code']['status'] = "Needs Login"
+
+            # Codex background query trigger
+            now_codex = time.time()
+            if now_codex - self.last_codex_fetch_time > 60 and not self.codex_fetching:
+                self.codex_fetching = True
+                self.last_codex_fetch_time = now_codex
+                import threading
+                t_codex = threading.Thread(target=self._fetch_codex_usage_thread)
+                t_codex.daemon = True
+                t_codex.start()
+                
+            # Populate Codex metrics
+            self.metrics['codex']['has_budget'] = self.codex_usage_cache["has_budget"]
+            self.metrics['codex']['tokens_used'] = self.codex_usage_cache["tokens_used"]
+            self.metrics['codex']['remaining_tokens'] = self.codex_usage_cache["remaining_tokens"]
+            self.metrics['codex']['weekly_quota'] = self.codex_usage_cache["weekly_quota"]
+            self.metrics['codex']['status'] = self.codex_usage_cache["status"]
 
         # 1. Automatic Quota Reset Check (weekly reset = 7 days or 604,800 seconds)
         try:
