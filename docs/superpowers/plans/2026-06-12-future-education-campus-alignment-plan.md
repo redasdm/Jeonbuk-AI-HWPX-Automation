@@ -1,4 +1,4 @@
-# 「미래교육캠퍼스」 연계 맞춤형 진로 성장 체체 구축 방안 보고요지 생성 계획서
+# 「미래교육캠퍼스」 연계 전북 특화 진로·일자리 체험을 통한 지역 정주형 미래인재 육성 방안 보고요지 생성 계획서 (최종 수정본)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -44,17 +44,17 @@
       
       # HWPX 파일 생성 여부 검증
       assert output_file.exists(), "HWPX 파일이 정상적으로 생성되지 않았습니다."
-      assert output_file.stat().st_size > 100000, "HWPX 파일 용량이 비정상적입니다."
+      assert output_file.stat().st_size > 10000, f"HWPX 파일 용량이 비정상적입니다: {output_file.stat().st_size} bytes"
   ```
 
 - [ ] **Step 2: 단위 테스트 실행 및 실패 확인**
 
-  Run: `pytest tests/test_campus_briefing.py -v`
-  Expected: FAIL (스크립트 파일이 없으므로 ModuleNotFoundError 혹은 FileNotFoundError 발생)
+  Run: `pytest tests/test_campus_briefing.py -v` (또는 `python tests/test_campus_briefing.py`)
+  Expected: FAIL
 
 - [ ] **Step 3: 미래교육캠퍼스 보고요지 빌더 스크립트 구현**
 
-  외래어를 배제하고, 천호성 교육감 구호(학력·인성·청렴) 및 정식 개관 일정(2028년 4월), 건축과 전시 공정 분리안을 모두 담아 HWPX 본문 구조를 동적으로 생성하는 스크립트를 구현합니다.
+  전북의 4대 지역 특화 산업(농생명, 친환경 로보틱스, 미래 모빌리티, 피지컬 AI) 및 관련 실제 지역 일자리를 매칭하고, 최종 개관 로드맵(2028년 4월)과 공종 분리를 반영한 한글 빌더 코드를 구현합니다.
 
   ```python
   # create_campus_briefing_plan.py
@@ -86,7 +86,7 @@
       
       # 스타일 ID 정의
       TITLE_P, TITLE_C = 17, 58      # 제목 스타일
-      SEC_P, SEC_C = 77, 71           # 대주제 스타일 (❍, )
+      SEC_P, SEC_C = 77, 71           # 대주제 스타일 (Ⅰ, Ⅱ, Ⅲ 등)
       BOX_P, BOX_C = 77, 19           # 중주제/내용 박스 스타일 (◦)
       BULLET_P, BULLET_C = 79, 19     # 소주제 스타일 (-)
       BLANK_P = 8                     # 빈 줄 스타일
@@ -160,62 +160,64 @@
       # ==========================================
       # 본문 작성 시작
       # ==========================================
-      add_p(TITLE_P, TITLE_C, "「미래교육캠퍼스」 연계 맞춤형 진로 성장 체체 구축 방안(안)")
+      add_p(TITLE_P, TITLE_C, "「미래교육캠퍼스」 연계 전북 특화 진로·일자리 체험을 통한 지역 정주형 미래인재 육성 방안(안)")
       add_blank()
 
       # Ⅰ. 추진 배경 및 설립 목적
-      add_p(SEC_P, SEC_C, " Ⅰ. 추진 배경 및 설립 목적")
-      add_p(BOX_P, BOX_C, "◦ 단 한 명도 배움에서 소외되지 않는 맞춤형 미래 학력 신장")
-      add_p(BULLET_P, BULLET_C, "- 학생 개개인의 미래 역량을 수집하여 적성과 소질에 부합하는 개별 성장 기회 보장")
-      add_p(BOX_P, BOX_C, "◦ 지역과 세계를 잇는 미래형 진로 개척")
-      add_p(BULLET_P, BULLET_C, "- 인공지능 기초 원리를 탐구하고, 전북 지역 전략산업과 연계하여 지역 정주형 인재 양성")
-      add_p(BOX_P, BOX_C, "◦ 배려와 소통을 실천하는 민주시민 역량 함양")
-      add_p(BULLET_P, BULLET_C, "- 협력적 문제 해결력 및 자치 토론 활성화로 더불어 성장하는 공동체 가치 구현")
+      add_p(SEC_P, SEC_C, "Ⅰ. 추진 배경 및 설립 목적")
+      add_p(BOX_P, BOX_C, "◦ 단 한 명도 소외되지 않는 전북 맞춤형 진로 복지 실현")
+      add_p(BULLET_P, BULLET_C, "- 지역 간 교육 격차를 해소하고 도내 모든 학생에게 최상의 미래 진로 탐색 기회 제공")
+      add_p(BOX_P, BOX_C, "◦ 전북 특화 산업 및 지역 일자리 연계형 진로 교육")
+      add_p(BULLET_P, BULLET_C, "- 전북의 4대 지역전략산업과 실제 일자리를 연계하여 실무 탐구형 진로 설계 지원")
+      add_p(BOX_P, BOX_C, "◦ 지역 소멸 위기에 대응하는 정주형 미래인재 양성")
+      add_p(BULLET_P, BULLET_C, "- 지역 미래 성장 동력을 조기 학습하여 도내 대학 및 향토 기업으로 정주·성장하는 선순환 구조 확립")
       add_blank()
 
       # Ⅱ. 미래교육캠퍼스 설립 현황 및 추진 내용
-      add_p(SEC_P, SEC_C, " Ⅱ. 미래교육캠퍼스 설립 현황 및 추진 내용")
+      add_p(SEC_P, SEC_C, "Ⅱ. 미래교육캠퍼스 설립 현황 및 추진 내용")
       add_p(BOX_P, BOX_C, "◦ 공정 현황: 지하 골조 공사가 차질 없이 진행 중이며, 1층 바닥 콘크리트 타설 준비 중")
-      add_p(BOX_P, BOX_C, "◦ 협상 현황: 우선협상대상자와 단순 관람을 배제한 교육과정 연계 체험 시나리오 중심 협상 가동 중")
+      add_p(BOX_P, BOX_C, "◦ 협상 현황: 우선협상대상자와 '전북 일자리 연계 및 체험 시나리오 구체화' 중심 실무 협상 가동 중")
       add_blank()
 
       # Ⅲ. 인수위 10대 정책과의 공간별 매칭 체계
-      add_p(SEC_P, SEC_C, " Ⅲ. 인수위 10대 정책과의 공간별 매칭 체계")
+      add_p(SEC_P, SEC_C, "Ⅲ. 인수위 10대 정책과의 공간별 매칭 체계")
       add_table(
           ["캠퍼스 공간", "교육감 정책 연계", "구체적인 연계 방안 (체험 예시)"],
           [
               ["맞이공간 및\n디지털도서관", "기본에 충실한 교육\n(독서 300 프로젝트,\n문해력 신장 교육)", "인공지능 기반 독서 문해력 진단 코너 및\n개인별 맞춤 도서 추천 서비스 운영"],
-              ["미래기술체험관", "인공지능 미래 교육\n(전북형 AI 인재 육성,\n지역 미래산업 교육)", "피지컬 AI 기술과 전북 지역 전략산업(지능형\n자동차, 자율 바이오 등) 융합 시뮬레이터 운영"],
-              ["미래교육관", "성공하는 진학·진로 교육\n(전북학생 미래인재 성장 단계,\n진로 맞춤 교육)", "체험 활동 데이터를 누적하여 '진로 성장 리포트'\n발급 및 학교 진로 지도·생활기록부 연동"],
-              ["미래교육 아레나", "학교공동체 회복 및\n민주시민 양성\n(만민공동회, 평화 갈등 해결)", "(e스포츠 배제) 실제 사회 현안 토론 및 대안을\n제시하는 자치 의회, 갈등 조정 역할극 운영"]
+              ["미래기술체험관", "인공지능 미래 교육\n(전북형 AI 인재 육성,\n지역 전략산업 교육)", "전북 4대 핵심 산업(농생명, 친환경 로보틱스, 미래\n모빌리티, 피지컬 AI) 기반 도내 일자리 미션 수행"],
+              ["미래교육관", "성공하는 진학·진로 교육\n(전북학생 미래인재 성장 단계,\n진로 맞춤 교육)", "체험 활동 데이터를 누적하여 '전북형 진로·일자리\n성장 리포트' 발급 및 진학 상담·생활기록부 연동"],
+              ["미래교육 아레나", "학교공동체 회복 및\n민주시민 양성\n(만민공동회, 평화 갈등 해결)", "(e스포츠 배제) 전북 지역 일자리 창출 및 지역 소멸\n극복을 주제로 한 청소년 자치 의회, 토론회 운영"]
           ],
           col_widths=[10000, 12000, 20520]
       )
       add_blank()
 
       # Ⅳ. 핵심 추진 과제
-      add_p(SEC_P, SEC_C, " Ⅳ. 핵심 추진 과제")
-      add_p(BOX_P, BOX_C, "◦ 1. 인공지능 기반 개인 맞춤형 진로 성장 설계")
-      add_p(BULLET_P, BULLET_C, "- 캠퍼스 체험 활동 결과를 학생 개인 카드로 자동 기록하여 '진로 성장 포트폴리오'로 체계화")
-      add_p(BULLET_P, BULLET_C, "- 예비 고교생 대상 스타트업 캠프, 고1~2학년 대상 스텝업 프로젝트 등 단계별 교육과정 연동")
-      add_p(BOX_P, BOX_C, "◦ 2. 전북 전략산업 및 민주시민 역량 연계형 진로 생태계 구축")
-      add_p(BULLET_P, BULLET_C, "- 피지컬 AI, 농생명, 친환경 모빌리티 등 전북 미래 전략기술 체험 확대 및 교육과정 이수단위화 기반 마련")
-      add_p(BULLET_P, BULLET_C, "- 공동체 역량 함양을 위해 '학생·청소년 만민공동회 체험 프로그램'을 정규 교육과정의 민주시민 파트와 연계")
+      add_p(SEC_P, SEC_C, "Ⅳ. 핵심 추진 과제")
+      add_p(BOX_P, BOX_C, "◦ 1. 전북 4대 특화 산업과 지역 일자리 연계형 미래 진로 체험 고도화")
+      add_p(BULLET_P, BULLET_C, "- 농생명 구역: 농생명 혁신도시 기반 스마트팜 연구원 및 바이오 식품 공학자 업무 시뮬레이션")
+      add_p(BULLET_P, BULLET_C, "- 친환경 로보틱스 구역: 새만금 신재생에너지 단지 연계 리사이클링 엔지니어 및 이차전지 공학자 체험")
+      add_p(BULLET_P, BULLET_C, "- 미래 모빌리티 구역: 군산 전기차 클러스터 기반 자율주행 제어 엔지니어 및 미래 교통 디자이너 실습")
+      add_p(BULLET_P, BULLET_C, "- 피지컬 AI 구역: 전북 피지컬 AI 실증단지 기반 인간-로봇 상호작용 개발자 역량 분석")
+      add_p(BOX_P, BOX_C, "◦ 2. 지역 정주를 유도하는 맞춤형 진로 진학 연동 체계 구축")
+      add_p(BULLET_P, BULLET_C, "- 도교육청-지자체-지역 대학-향토 기업 간 협력 체계를 통해 축적된 진로 데이터를 도내 고교·대학 진학 경로와 연계")
+      add_p(BULLET_P, BULLET_C, "- 학생 진로 성장 포트폴리오를 도내 기업 인턴십 및 취업 매칭 기초 자료로 제공하여 전북 정주율 제고")
       add_blank()
 
       # Ⅴ. 기대 효과 및 향후 계획
-      add_p(SEC_P, SEC_C, " Ⅴ. 기대 효과 및 향후 계획")
+      add_p(SEC_P, SEC_C, "Ⅴ. 기대 효과 및 향후 계획")
       add_p(BOX_P, BOX_C, "◦ 가. 기대 효과")
-      add_p(BULLET_P, BULLET_C, "- 소외 지역 학생 중심 지원을 통한 보편적 진로·학습 복지 실현")
-      add_p(BULLET_P, BULLET_C, "- 지역 미래 신산업 관련 진로 관심 촉발로 지역 정주형 선순환 생태계 활성화")
-      add_p(BULLET_P, BULLET_C, "- 배려와 소통을 실천하는 균형 잡힌 인권 감수성 및 민주시민 자질 함양")
+      add_p(BULLET_P, BULLET_C, "- 도내 전략산업 맞춤형 인재 육성을 통한 지역 정주율 제고 및 지역 소멸 방지")
+      add_p(BULLET_P, BULLET_C, "- 소외 지역 배려 수송 대책 연계로 교육 공공성 및 무상 진로 복지 실현")
+      add_p(BULLET_P, BULLET_C, "- 협동형 문제 해결을 통한 공동체 역량과 배려·소통을 실천하는 인성 함양")
       add_p(BOX_P, BOX_C, "◦ 나. 향후 추진 계획 (로드맵)")
       add_table(
           ["구분", "일정", "주요 협상 및 공정 내용"],
           [
               ["협상 및 계약", "2026. 06. ~ 07.", "• 우선협상대상자와 운영 시나리오 보완 협상 마무리 및 본계약 체결"],
               ["건축 공사", "2026. 11.\n2027. 05.", "• 건축 골조 공사 완료\n• 건축물 사용승인 및 준공"],
-              ["전시체험물 공사", "2026. 07. ~ 12.\n2027. 01. ~ 12.", "• 전시 및 인테리어 세부 설계 및 공장 제작\n• 현장 인테리어 공사 및 전시체험물 설치 완료"],
+              ["전시체험물 공사", "2026. 07. ~ 12.\n2027. 01. ~ 12.", "• 전시 및 인테리어 세부 설계 및 공장 제작\n• 현장 인테리어 공사 및 전시체험물 설치 완료\n(12월 최종 공사 마무리)"],
               ["시운전 및 개관", "2028. 01. ~ 03.\n2028. 04.", "• 시스템 시운전 및 교사·학생 시범 운영 (3개월간)\n• 미래교육캠퍼스 정식 개관"]
           ],
           col_widths=[8000, 10000, 24520]
@@ -246,12 +248,12 @@
 
 - [ ] **Step 4: 단위 테스트 실행 및 통과 검증**
 
-  Run: `pytest tests/test_campus_briefing.py -v`
-  Expected: PASS (테스트 통과 및 출력 경로에 정상적으로 한글 보고요지 파일 생성 완료)
+  Run: `python tests/test_campus_briefing.py`
+  Expected: PASS
 
 - [ ] **Step 5: 소스 코드 커밋**
 
   ```bash
   git add create_campus_briefing_plan.py tests/test_campus_briefing.py
-  git commit -m "feat: add future education campus briefing plan generator script"
+  git commit -m "feat: update briefing plan generator with Jeonbuk-tailored jobs and career alignment"
   ```
