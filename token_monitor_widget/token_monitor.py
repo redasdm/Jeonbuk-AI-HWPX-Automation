@@ -433,6 +433,12 @@ class TokenMonitorEngine:
                 'min_unit': unit,
                 'weekly_quota': quota
             }
+            # Copy extra metadata fields (account, plan, resets_at, status) if present
+            if service in self.metrics and isinstance(self.metrics[service], dict):
+                for k, v in self.metrics[service].items():
+                    if k not in output[service]:
+                        output[service][k] = v
+            
             # Update internal dictionary to keep in sync with clamped values
             if service in self.metrics and isinstance(self.metrics[service], dict):
                 self.metrics[service]['remaining_tokens'] = rem
